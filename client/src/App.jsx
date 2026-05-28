@@ -25,10 +25,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-surface">
       <Routes>
-        <Route path="/login" element={<AppRoutes />} />
-        <Route path="/signup" element={<AppRoutes />} />
+        <Route path="/login/*" element={<AppRoutes />} />
+        <Route path="/signup/*" element={<AppRoutes />} />
         <Route
-          path="/dashboard"
+          path="/dashboard/*"
           element={
             <ProtectedRoute>
               <AppRoutes />
@@ -36,7 +36,7 @@ export default function App() {
           }
         />
         <Route
-          path="/faq"
+          path="/faq/*"
           element={
             <ProtectedRoute>
               <AppRoutes />
@@ -44,7 +44,7 @@ export default function App() {
           }
         />
         <Route
-          path="/rtq"
+          path="/rtq/*"
           element={
             <ProtectedRoute>
               <AppRoutes />
@@ -52,7 +52,7 @@ export default function App() {
           }
         />
         <Route
-          path="/profile"
+          path="/profile/*"
           element={
             <ProtectedRoute>
               <AppRoutes />
@@ -60,7 +60,7 @@ export default function App() {
           }
         />
         <Route
-          path="/users"
+          path="/users/*"
           element={
             <ProtectedRoute>
               <AppRoutes />
@@ -68,7 +68,7 @@ export default function App() {
           }
         />
         <Route
-          path="/raise-question"
+          path="/raise-question/*"
           element={
             <ProtectedRoute allowedRoles={['student', 'moderator']}>
               <AppRoutes />
@@ -76,7 +76,7 @@ export default function App() {
           }
         />
         <Route
-          path="/add-faq"
+          path="/add-faq/*"
           element={
             <ProtectedRoute allowedRoles={['senior', 'admin']}>
               <AppRoutes />
@@ -84,7 +84,7 @@ export default function App() {
           }
         />
         <Route
-          path="/track"
+          path="/track/*"
           element={
             <ProtectedRoute>
               <AppRoutes />
@@ -92,7 +92,7 @@ export default function App() {
           }
         />
         <Route
-          path="/history"
+          path="/history/*"
           element={
             <ProtectedRoute>
               <AppRoutes />
@@ -100,7 +100,7 @@ export default function App() {
           }
         />
         <Route
-          path="/notifications"
+          path="/notifications/*"
           element={
             <ProtectedRoute>
               <AppRoutes />
