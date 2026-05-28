@@ -1,7 +1,7 @@
 import FAQ from '../models/FAQ.model.js';
 import { awardQP } from '../services/qp.service.js';
 import { notifyUser } from '../services/notification.service.js';
-import { FAQ_CATEGORIES } from '../utils/constants.js';
+import { FAQ_CATEGORIES } from '../../../shared/constants.js';
 
 export async function listFAQs(req, res) {
   try {

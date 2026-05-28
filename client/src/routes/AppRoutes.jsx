@@ -1,4 +1,7 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+// Pages
 import LoginPage from '../pages/LoginPage';
 import SignupPage from '../pages/SignupPage';
 import FAQPage from '../pages/FAQPage';
@@ -13,21 +16,106 @@ import TrackQuestionPage from '../pages/TrackQuestionPage';
 import WorkingHistoryPage from '../pages/WorkingHistoryPage';
 import NotificationsPage from '../pages/NotificationsPage';
 
+// ─── Auth guards ───────────────────────────────────────────────
+function ProtectedRoute({ children, allowedRoles }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <div className="text-muted">Loading...</div>
+      </div>
+    );
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
+function PublicOnly({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface">
+        <div className="text-muted">Loading...</div>
+      </div>
+    );
+  }
+  if (user) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/dashboard" element={<StudentDashboard />} />
-      <Route path="/faq" element={<FAQPage />} />
-      <Route path="/rtq" element={<RTQPage />} />
-      <Route path="/profile" element={<ProfilePage />} />
-      <Route path="/users" element={<UserListPage />} />
-      <Route path="/raise-question" element={<RaiseQuestionPage />} />
-      <Route path="/add-faq" element={<AddFAQPage />} />
-      <Route path="/track" element={<TrackQuestionPage />} />
-      <Route path="/history" element={<WorkingHistoryPage />} />
-      <Route path="/notifications" element={<NotificationsPage />} />
+      {/* Root redirect */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
+
+      {/* ── Public routes ── */}
+      <Route
+        path="/login"
+        element={<PublicOnly><LoginPage /></PublicOnly>}
+      />
+      <Route
+        path="/signup"
+        element={<PublicOnly><SignupPage /></PublicOnly>}
+      />
+
+      {/* ── Shared protected routes ── */}
+      <Route
+        path="/dashboard"
+        element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>}
+      />
+      <Route
+        path="/faq"
+        element={<ProtectedRoute><FAQPage /></ProtectedRoute>}
+      />
+      <Route
+        path="/rtq"
+        element={<ProtectedRoute><RTQPage /></ProtectedRoute>}
+      />
+      <Route
+        path="/profile"
+        element={<ProtectedRoute><ProfilePage /></ProtectedRoute>}
+      />
+      <Route
+        path="/users"
+        element={<ProtectedRoute><UserListPage /></ProtectedRoute>}
+      />
+      <Route
+        path="/notifications"
+        element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>}
+      />
+
+      {/* ── Role-gated routes ── */}
+      <Route
+        path="/raise-question"
+        element={
+          <ProtectedRoute allowedRoles={['student', 'moderator']}>
+            <RaiseQuestionPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/add-faq"
+        element={
+          <ProtectedRoute allowedRoles={['senior', 'admin']}>
+            <AddFAQPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/track"
+        element={<ProtectedRoute><TrackQuestionPage /></ProtectedRoute>}
+      />
+      <Route
+        path="/history"
+        element={<ProtectedRoute><WorkingHistoryPage /></ProtectedRoute>}
+      />
+
+      {/* ── Fallback ── */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 }
