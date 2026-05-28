@@ -1,0 +1,50 @@
+import express from 'express';
+import cors from 'cors';
+import { config } from './config/env.js';
+
+import authRoutes from './routes/auth.routes.js';
+import faqRoutes from './routes/faq.routes.js';
+import rtqRoutes from './routes/rtq.routes.js';
+import questionRoutes from './routes/question.routes.js';
+import userRoutes from './routes/user.routes.js';
+import qpRoutes from './routes/qp.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
+import adminRoutes from './routes/admin.routes.js';
+import ragRoutes from './routes/rag.routes.js';
+
+const app = express();
+
+// Middleware
+app.use(cors({ origin: config.ALLOWED_ORIGINS, credentials: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/faq', faqRoutes);
+app.use('/api/rtq', rtqRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/qp', qpRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/rag', ragRoutes);
+
+// Leaderboard shortcut
+import { getLeaderboard } from './controllers/qp.controller.js';
+import { authenticate } from './middleware/auth.middleware.js';
+app.get('/api/leaderboard', authenticate, getLeaderboard);
+
+// 404 handler
+app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('[ERROR]', err);
+  res.status(500).json({ message: 'Internal server error' });
+});
+
+export default app;
