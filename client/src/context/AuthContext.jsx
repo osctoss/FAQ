@@ -35,6 +35,10 @@ export function AuthProvider({ children }) {
     return await authService.signup(payload);
   };
 
+  const requestAccess = async (payload) => {
+    return await authService.requestAccess(payload);
+  };
+
   const verifyOtp = async (userId, otp) => {
     return await authService.verifyOtp(userId, otp);
   };
@@ -46,7 +50,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, signup, verifyOtp, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, signup, requestAccess, verifyOtp, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

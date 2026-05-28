@@ -3,13 +3,15 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function SignupPage() {
-  const [step, setStep] = useState(1); // 1 = form, 2 = OTP
+  const [step, setStep] = useState(1);
   const [form, setForm] = useState({ name: '', username: '', email: '', password: '' });
   const [otp, setOtp] = useState('');
   const [userId, setUserId] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signup, verifyOtp } = useAuth();
+  const [restricted, setRestricted] = useState(false);
+  const [accessRequested, setAccessRequested] = useState(false);
+  const { signup, verifyOtp, requestAccess } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -23,7 +25,26 @@ export default function SignupPage() {
       setUserId(res.userId);
       setStep(2);
     } catch (err) {
-      setError(err.message || 'Signup failed');
+      if (err.restricted) {
+        setRestricted(true);
+        setError('Access Restricted. This email is not on the accepted list.');
+      } else {
+        setError(err.message || 'Signup failed');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestAccess = async e => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      await requestAccess(form);
+      setAccessRequested(true);
+    } catch (err) {
+      setError(err.message || 'Failed to submit request');
     } finally {
       setLoading(false);
     }
@@ -49,11 +70,11 @@ export default function SignupPage() {
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-primary">Create Account</h1>
           <p className="text-muted mt-2">
-            {step === 1 ? 'Join the Q&A community' : 'Enter the verification code'}
+            {step === 1 && !restricted ? 'Join the Q&A community' : step === 1 && restricted && !accessRequested ? 'Request Access' : step === 1 && accessRequested ? 'Request Submitted' : 'Enter the verification code'}
           </p>
         </div>
         <div className="card p-8">
-          {step === 1 ? (
+          {step === 1 && !restricted && (
             <form onSubmit={handleSignup} className="space-y-5">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -80,7 +101,45 @@ export default function SignupPage() {
                 {loading ? 'Creating account...' : 'Create account'}
               </button>
             </form>
-          ) : (
+          )}
+
+          {step === 1 && restricted && !accessRequested && (
+            <div className="space-y-5">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-medium text-center">
+                Access Restricted
+              </div>
+              <p className="text-sm text-muted text-center">
+                Your email is not on the accepted list. Submit a request to the admin for approval.
+              </p>
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+              <button onClick={() => setRestricted(false)} className="btn-secondary w-full">
+                ← Go Back
+              </button>
+              <button onClick={handleRequestAccess} disabled={loading} className="btn-primary w-full">
+                {loading ? 'Submitting...' : 'Request Approval'}
+              </button>
+            </div>
+          )}
+
+          {step === 1 && restricted && accessRequested && (
+            <div className="space-y-5 text-center">
+              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+                Request Submitted Successfully
+              </div>
+              <p className="text-sm text-muted">
+                An admin will review your request. You will be notified once approved.
+              </p>
+              <Link to="/login" className="btn-primary w-full inline-block text-center">
+                Go to Sign In
+              </Link>
+            </div>
+          )}
+
+          {step === 2 && (
             <form onSubmit={handleVerify} className="space-y-5">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -108,10 +167,13 @@ export default function SignupPage() {
               </button>
             </form>
           )}
-          <p className="text-center text-sm text-muted mt-6">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary font-medium hover:underline">Sign in</Link>
-          </p>
+
+          {step === 1 && !restricted && (
+            <p className="text-center text-sm text-muted mt-6">
+              Already have an account?{' '}
+              <Link to="/login" className="text-primary font-medium hover:underline">Sign in</Link>
+            </p>
+          )}
         </div>
       </div>
     </div>

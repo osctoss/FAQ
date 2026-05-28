@@ -1,4 +1,4 @@
-import { signupUser, verifyOTP, loginUser, getMe, requestReAccess } from '../services/auth.service.js';
+import { signupUser, verifyOTP, loginUser, getMe, requestReAccess, requestAccess } from '../services/auth.service.js';
 
 export async function signup(req, res) {
   try {
@@ -7,6 +7,13 @@ export async function signup(req, res) {
       return res.status(400).json({ message: 'All fields are required' });
     }
     const result = await signupUser({ name, username, email, password });
+    if (result.restricted) {
+      return res.status(403).json({
+        message: result.error,
+        restricted: true,
+        email: result.email
+      });
+    }
     if (result.error) {
       return res.status(400).json({
         message: result.error,
@@ -66,6 +73,23 @@ export async function me(req, res) {
 
 export async function logout(req, res) {
   res.json({ message: 'Logged out successfully' });
+}
+
+export async function requestAccessUser(req, res) {
+  try {
+    const { name, username, email, password } = req.body;
+    if (!name || !username || !email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+    const result = await requestAccess({ name, username, email, password });
+    if (result.error) {
+      return res.status(400).json({ message: result.error });
+    }
+    res.status(201).json({ requestId: result.requestId, message: result.message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
 }
 
 export async function requestReAccessUser(req, res) {

@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.model.js';
 import RoleRequest from '../models/RoleRequest.model.js';
+import EmailWhitelist from '../models/EmailWhitelist.model.js';
+import AccessRequest from '../models/AccessRequest.model.js';
 import { config } from '../config/env.js';
 import logger from '../utils/logger.js';
 
@@ -27,6 +29,16 @@ export async function signupUser({ name, username, email, password }) {
     return { error: 'Username already taken' };
   }
 
+  const normalizedEmail = email.toLowerCase().trim();
+  const inWhitelist = await EmailWhitelist.findOne({ email: normalizedEmail });
+  if (!inWhitelist) {
+    return {
+      restricted: true,
+      email: normalizedEmail,
+      error: 'Access Restricted. This email is not on the accepted list.'
+    };
+  }
+
   const otp = generateOTP();
   const otpExpiry = new Date(Date.now() + config.OTP_EXPIRY_MINUTES * 60 * 1000);
 
@@ -38,6 +50,35 @@ export async function signupUser({ name, username, email, password }) {
 
   logger.info(`[OTP] For ${email}: ${otp}`);
   return { userId: user._id, otp };
+}
+
+export async function requestAccess({ name, username, email, password }) {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const existingUser = await User.findOne({ $or: [{ email: normalizedEmail }, { username }] });
+  if (existingUser) {
+    return { error: 'A user with this email or username already exists.' };
+  }
+
+  const inWhitelist = await EmailWhitelist.findOne({ email: normalizedEmail });
+  if (inWhitelist) {
+    return { error: 'This email is already on the accepted list. You can sign up directly.' };
+  }
+
+  const pendingRequest = await AccessRequest.findOne({ email: normalizedEmail, status: 'pending' });
+  if (pendingRequest) {
+    return { error: 'An access request is already pending for this email.' };
+  }
+
+  const request = await AccessRequest.create({
+    name,
+    username,
+    email: normalizedEmail,
+    password
+  });
+
+  logger.info(`[AccessRequest] Pending request from ${normalizedEmail}`);
+  return { requestId: request._id, message: 'Access request submitted. An admin will review it shortly.' };
 }
 
 export async function requestReAccess(userId, { name, username, email, password }) {

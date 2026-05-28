@@ -5,6 +5,10 @@ import {
   getPendingUsers, approveUser, rejectUser,
   getRoleRequests, approveRoleRequest, rejectRoleRequest
 } from '../controllers/admin.controller.js';
+import {
+  getWhitelist, addToWhitelist, removeFromWhitelist,
+  getAccessRequests, approveAccessRequest, rejectAccessRequest
+} from '../controllers/admin.whitelist.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { authorizeRoles } from '../middleware/role.middleware.js';
 
@@ -31,5 +35,13 @@ router.post('/reject-user', authorizeRoles('admin', 'senior'), rejectUser);
 router.get('/role-requests', authorizeRoles('admin'), getRoleRequests);
 router.post('/role-requests/:requestId/approve', authorizeRoles('admin'), approveRoleRequest);
 router.post('/role-requests/:requestId/reject', authorizeRoles('admin'), rejectRoleRequest);
+
+router.get('/whitelist', authorizeRoles('admin'), getWhitelist);
+router.post('/whitelist', authorizeRoles('admin'), addToWhitelist);
+router.delete('/whitelist/:id', authorizeRoles('admin'), removeFromWhitelist);
+
+router.get('/access-requests', authorizeRoles('admin'), getAccessRequests);
+router.post('/access-requests/:requestId/approve', authorizeRoles('admin'), approveAccessRequest);
+router.post('/access-requests/:requestId/reject', authorizeRoles('admin'), rejectAccessRequest);
 
 export default router;

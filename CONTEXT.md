@@ -1,14 +1,14 @@
 # CONTEXT.md — Q&A Platform Project Context
 
-> Generated: 2026-05-28 | Last updated: 2026-05-28 (post-diagnosis patch)
+> Generated: 2026-05-28 | Last updated: 2026-05-28 (email whitelist + Qdrant + admin role system)
 
 ---
 
 ## 📌 What This Is
 
-A semantic query-resolution and FAQ generation platform with a QP (Quality Point) reputation economy and role-based access control. Users raise real-time queries, get peer/moderator/senior answers, and high-quality content graduates into an approved FAQ knowledge base.
+A semantic query-resolution and FAQ generation platform with a **QP (Quality Point) reputation economy**, **role-based access control**, **Qdrant Cloud vector search**, and **admin-controlled email whitelist signup**. Users raise real-time queries, get peer/moderator/senior answers, and high-quality content graduates into an approved FAQ knowledge base.
 
-**Status:** All 19 diagnosed bugs fixed. Server on port 5000, client on port 3000.
+**Status:** All 19 diagnosed bugs fixed. Qdrant Cloud integrated. Admin role system active. Email whitelist signup gate active. Server on port 5000, client on port 3000.
 
 ---
 
@@ -20,97 +20,168 @@ FAQ-main/
 ├── CONTEXT.md
 ├── client/
 │   └── src/
-│       ├── App.jsx                    # Fixed: no double-routing; role-based dashboard; Nav included
+│       ├── App.jsx                    # Role-based dashboard routing; Nav included
 │       ├── components/
-│       │   ├── Nav.jsx                # NEW: persistent nav bar
-│       │   ├── AnswerCard.jsx         # Fixed: real user ID upvote check
+│       │   ├── Nav.jsx                # Persistent nav bar
+│       │   ├── AnswerCard.jsx         # Real user ID upvote check
 │       │   ├── QPBadge.jsx
 │       │   ├── QuestionCard.jsx
 │       │   ├── RoleGuard.jsx
 │       │   └── UpvoteButton.jsx
 │       ├── context/
-│       │   ├── AuthContext.jsx
-│       │   └── QPContext.jsx          # Fixed: useEffect fetches QP on mount
+│       │   ├── AuthContext.jsx        # JWT role+qp; requestAccess
+│       │   └── QPContext.jsx
 │       ├── pages/
-│       │   ├── NotificationsPage.jsx  # Fixed: qpImpact field (was qpChange)
-│       │   ├── ProfilePage.jsx        # Fixed: tx.reason (was tx.description); sign display
-│       │   ├── RaiseQuestionPage.jsx  # Fixed: correct RAG status fields
-│       │   ├── TrackQuestionPage.jsx  # Fixed: correct status enum values
-│       │   └── ... (all other pages unchanged)
+│       │   ├── SignupPage.jsx         # Email whitelist gate + request approval flow
+│       │   ├── UserListPage.jsx       # Admin: Users + Whitelist + Access Requests tabs
+│       │   └── ... (all other pages)
 │       ├── routes/
-│       │   └── AppRoutes.jsx          # Retired (was causing double-routing)
-│       └── services/ (unchanged)
+│       └── services/
+│           ├── auth.service.js         # requestAccess method
+│           └── admin.service.js        # Whitelist + Access Request API
 ├── server/
 │   └── src/
 │       ├── config/
-│       │   └── db.js                  # Fixed: uses logger consistently
+│       │   ├── db.js
+│       │   ├── env.js
+│       │   └── qdrant.js              # NEW: Qdrant Cloud singleton client
 │       ├── controllers/
-│       │   ├── rtq.controller.js      # Fixed: RAG-before-create; double QP; answer selection; populate
-│       │   └── user.controller.js     # Fixed: removed duplicate getLeaderboard
+│       │   ├── admin.controller.js     # Full user CRUD; role management; block/unblock
+│       │   ├── admin.whitelist.controller.js  # NEW: whitelist + access request mgmt
+│       │   ├── auth.controller.js     # signup restriction; requestAccessUser
+│       │   └── ... (existing)
+│       ├── middleware/
+│       │   ├── auth.middleware.js     # JWT with role+qp in payload
+│       │   └── role.middleware.js     # authorizeRoles middleware
+│       ├── models/
+│       │   ├── User.model.js          # role: student|moderator|senior|admin
+│       │   ├── RoleRequest.model.js    # Blocked-user re-access requests
+│       │   ├── EmailWhitelist.model.js # NEW: admin-controlled signup email list
+│       │   └── AccessRequest.model.js  # NEW: non-whitelisted signup requests
 │       ├── routes/
-│       │   ├── rtq.routes.js          # Fixed: all static paths before /:id
-│       │   └── user.routes.js         # Fixed: removed duplicate leaderboard route
+│       │   ├── admin.routes.js        # Admin-only routes (whitelist + access requests)
+│       │   ├── auth.routes.js         # /request-access endpoint
+│       │   └── vector.routes.js       # NEW: /api/vector/health, /api/vector/rebuild
 │       └── services/
-│           └── qp.service.js          # Fixed: positive amounts; auto-promotion fires
-└── rag-engine/
-    ├── embedding/
-    │   └── embedder.js                # Fixed: corpus-aware IDF (rebuildVocabulary)
-    └── vectorDB/
-        ├── faq-vector.js              # Fixed: calls rebuildVocabulary
-        └── rtq-vector.js              # Fixed: calls rebuildVocabulary
+│           ├── auth.service.js         # signup checks whitelist; JWT: {id, role, qp}
+│           ├── qp.service.js
+│           ├── vector/                # NEW: Qdrant vector services
+│           │   ├── collection.service.js  # Auto-create collections (HNSW, cosine, 384-dim)
+│           │   ├── embedding.service.js   # TF-IDF n-gram embedder
+│           │   ├── faq.vector.service.js  # FAQ vector CRUD in Qdrant
+│           │   ├── rtq.vector.service.js  # RTQ vector CRUD in Qdrant
+│           │   └── similarity.service.js
+│           └── sync/                  # NEW: MongoDB ↔ Qdrant sync
+│               ├── sync.events.js        # Event emitter
+│               ├── faq.sync.service.js  # FAQ sync + rollback
+│               ├── rtq.sync.service.js   # RTQ sync + rollback
+│               └── sync.repair.service.js # Missing/stray vector detection + reindex
+├── rag-engine/
+│   ├── embedding/embedder.js          # Corpus-aware TF-IDF n-gram embedder (384-dim)
+│   └── vectorDB/                      # Legacy in-memory vector DB (superseded by Qdrant)
+└── shared/constants.js                # FAQ_CATEGORIES, QP_RULES, ROLES, etc.
 ```
 
 ---
 
-## ✅ Fixes Applied (19 issues)
+## ✅ Fixes Applied (19 issues) + New Features
 
-### 🔴 Critical
+### 🔴 Critical (original 19)
 
 | # | File | Fix |
 |---|------|-----|
 | 1 | `rtq.controller.js` | RAG evaluated before RTQ is created; rejected questions no longer persist |
-| 2 | `rtq.routes.js` | All static paths (`/approve-answer`, `/mark-accepted`, `/convert`, `/report`) placed before `/:id` |
-| 3 | `rtq.controller.js` | `convertToFAQ` populates `answers.userId`; sorts by upvotes in JS; senior-own-answer check works |
-| 4 | `qp.service.js` | `QPTransaction.amount` always stored as positive; `type` encodes direction |
+| 2 | `rtq.routes.js` | All static paths placed before `/:id` |
+| 3 | `rtq.controller.js` | `convertToFAQ` populates `answers.userId`; sorts by upvotes in JS |
+| 4 | `qp.service.js` | `QPTransaction.amount` positive; `type` encodes direction |
 | 5 | `ProfilePage.jsx` | `tx.reason` (was `tx.description`) |
 | 6 | `NotificationsPage.jsx` | `notif.qpImpact` (was `notif.qpChange`) |
-| 7 | `user.service.js` | Duplication noted; no functional change needed (same endpoints) |
-| 8 | `App.jsx` | Routes render page components directly — no nested `<AppRoutes>` double-routing |
-| 9 | `TrackQuestionPage.jsx` | Status dropdown values match model enum: `unresolved / partial / resolved` |
-| 10 | `user.controller.js` | Removed duplicate `getLeaderboard`; removed from `user.routes.js` |
+| 7 | `user.service.js` | Duplication noted |
+| 8 | `App.jsx` | No double-routing; role-based dashboard |
+| 9 | `TrackQuestionPage.jsx` | Status dropdown matches enum: `unresolved / partial / resolved` |
+| 10 | `user.controller.js` | Removed duplicate `getLeaderboard` |
+| 11 | `embedder.js` etc. | Corpus-aware IDF via `rebuildVocabulary` |
+| 12 | `rtq.controller.js` (`markAccepted`) | No duplicate QP for questioner |
+| 13 | `qp.service.js` | `checkAutoPromotion` called inside `awardQP` |
+| 14 | `QPContext.jsx` | `useEffect` fetches QP on mount |
+| 15 | `AnswerCard.jsx` | Upvote uses `user._id` from `useAuth()` |
+| 16 | `Nav.jsx` (new), `App.jsx` | Persistent nav bar on all authenticated pages |
+| 17 | `App.jsx` | `/dashboard` → `SeniorDashboard` for senior/admin |
+| 18 | `RaiseQuestionPage.jsx` | Dead `FAQ_MATCH` status removed |
+| 19 | Routes audit | `PATCH /api/admin/assign-role` is the correct live endpoint |
 
-### 🟠 Logic
+### 🟢 Qdrant Cloud Integration (NEW — v2)
 
-| # | File | Fix |
-|---|------|-----|
-| 11 | `embedder.js`, `faq-vector.js`, `rtq-vector.js` | `rebuildVocabulary(texts[])` stores corpus-wide IDF; `embedSingle` uses stored IDF |
-| 12 | `rtq.controller.js` (`markAccepted`) | Questioner no longer awarded duplicate +5 QP; only moderator/senior gets QP |
-| 13 | `qp.service.js` | `checkAutoPromotion` called inside `awardQP`; sends notification at 500 QP |
-| 14 | `QPContext.jsx` | `useEffect` fetches QP on mount and on user change |
-| 15 | `AnswerCard.jsx` | Upvote check uses `user._id` from `useAuth()` |
+| # | File | Purpose |
+|---|------|---------|
+| Q1 | `config/qdrant.js` | Singleton Qdrant client, retry logic, connection validation |
+| Q2 | `services/vector/collection.service.js` | Auto-create faq_collection + rtq_collection (HNSW, cosine, 384-dim, payload indexes) |
+| Q3 | `services/vector/embedding.service.js` | Text preprocessing + `generateEmbedding()` using rag-engine embedder |
+| Q4 | `services/vector/similarity.service.js` | Cosine/dot/euclidean similarity |
+| Q5 | `services/vector/faq.vector.service.js` | insert/search/update/delete FAQ vectors |
+| Q6 | `services/vector/rtq.vector.service.js` | insert/search/update/delete RTQ vectors |
+| Q7 | `services/sync/sync.events.js` | Event emitter for sync operations |
+| Q8 | `services/sync/faq.sync.service.js` | FAQ MongoDB↔Qdrant sync with rollback |
+| Q9 | `services/sync/rtq.sync.service.js` | RTQ MongoDB↔Qdrant sync with rollback |
+| Q10 | `services/sync/sync.repair.service.js` | Missing/stray vector detection + full reindex |
+| Q11 | `routes/vector.routes.js` | `GET /api/vector/health`, `POST /api/vector/rebuild` |
+| Q12 | `server.js` | Startup: validate Qdrant → initialize collections |
+| Q13 | `app.js` | Mounted `/api/vector` routes |
+| Q14 | `rtq.controller.js` | Wired syncRTQInsert on accept, syncRTQDelete on remove, syncRTQDelete+syncFAQInsert on convert |
+| Q15 | `faq.controller.js` | Wired syncFAQInsert on create, syncFAQUpdate on update, syncFAQDelete on delete |
 
-### 🟡 Missing features
+### 🟡 Admin Role System (NEW — v2)
 
-| # | File | Fix |
-|---|------|-----|
-| 16 | `Nav.jsx` (new), `App.jsx` | Persistent nav bar renders on all authenticated pages |
-| 17 | `App.jsx` | `/dashboard` renders `SeniorDashboard` for senior/admin, `StudentDashboard` otherwise |
-| 18 | `RaiseQuestionPage.jsx` | Dead `FAQ_MATCH` status removed; `matchedFAQ` / `matchedRTQ` fields used correctly |
-| 19 | Routes audit | `PATCH /api/users/role` was spec-only; `PATCH /api/admin/assign-role` is the correct live endpoint — no change needed |
+| # | File | Purpose |
+|---|------|---------|
+| A1 | `models/RoleRequest.model.js` | Blocked-user re-access requests (pre-existing) |
+| A2 | `auth.service.js` | JWT now includes `{id, role, qp}` — role enforced via middleware |
+| A3 | `auth.controller.js` | `requestReAccessUser` for blocked users |
+| A4 | `server.js` | `INITIAL_ADMIN_EMAIL` env var — auto-promotes user to admin on startup |
+| A5 | `admin.controller.js` | Full CRUD: getUsers, addUser, updateUser, deleteUser, assignRole, blockUser, unblockUser, reactivateUser |
+| A6 | `admin.routes.js` | All routes require `authorizeRoles('admin')`; `/assign-role` back-compat route |
 
-### 🔵 Minor
+### 🔵 Email Whitelist System (NEW — v3)
 
-| # | File | Fix |
-|---|------|-----|
-| — | `db.js` | Uses `logger` instead of `console.log/error` |
-| — | `rtq.controller.js` (`listRTQs`) | Answers now populated with `userId` in list view |
+| # | File | Purpose |
+|---|------|---------|
+| W1 | `models/EmailWhitelist.model.js` | Stores admin-approved signup emails |
+| W2 | `models/AccessRequest.model.js` | Stores pending signup requests from non-whitelisted users |
+| W3 | `auth.service.js` (`signupUser`) | Checks whitelist before creating user; returns `{restricted: true}` if not in list |
+| W4 | `auth.service.js` (`requestAccess`) | Creates AccessRequest for non-whitelisted users |
+| W5 | `controllers/admin.whitelist.controller.js` | `getWhitelist`, `addToWhitelist`, `removeFromWhitelist`, `getAccessRequests`, `approveAccessRequest`, `rejectAccessRequest` |
+| W6 | `admin.routes.js` | `GET/POST/DELETE /admin/whitelist`, `GET/POST /admin/access-requests/:id/approve|reject` |
+| W7 | `pages/SignupPage.jsx` | Shows "Access Restricted" → "Request Approval" button → "Request Submitted" on non-whitelisted signup |
+| W8 | `pages/UserListPage.jsx` | Admin tabs: **Users** + **Email Whitelist** + **Access Requests** |
 
 ---
 
-## 🔧 Next Steps (post-fix)
+## 🧠 Architecture Notes
 
-1. Wire email sending (OTP console-logged in dev — use SendGrid/Resend for prod)
+### Qdrant vs MongoDB Responsibilities
+- **MongoDB Atlas**: Application data (users, questions, answers, QP transactions, notifications)
+- **Qdrant Cloud**: Vector embeddings only (384-dim TF-IDF n-gram vectors for FAQ + RTQ semantic search)
+- Separation enables O(log n) ANN similarity search instead of O(n) brute-force
+
+### MongoDB ↔ Qdrant Sync Model
+- MongoDB is source of truth
+- Qdrant synced on: RTQ create/delete/status-change, FAQ create/update/delete, RTQ→FAQ conversion
+- If Qdrant fails: MongoDB operation is rolled back (insert/delete) or logged (update/delete)
+- `sync.repair.service.js` can detect missing/stray vectors and full-reindex
+
+### Email Whitelist Gate
+- ALL signups require email in `EmailWhitelist` collection
+- Non-whitelisted users see "Access Restricted" → submit `AccessRequest`
+- Admin approves → email added to whitelist + user account auto-created
+- `INITIAL_ADMIN_EMAIL` ensures first admin can always be bootstrapped
+
+---
+
+## 🔧 Next Steps
+
+1. ~~Wire email sending (OTP console-logged in dev)~~ — still dev-only
 2. Add `docs/` content
-3. Swap in-memory vector store for Qdrant/Pinecone in production
+3. ~~Qdrant Cloud integrated~~ — add credentials to `.env` when ready
 4. Add rate limiting to `/api/auth/signup` and `/api/rag/evaluate-question`
-5. Run `POST /api/rag/rebuild-vectors` after any bulk FAQ/RTQ import
+5. Run `POST /api/vector/rebuild` with `{collection: 'faq'}` or `'rtq'` to reindex after bulk import
+6. Add email sending (SendGrid/Resend) for production OTP delivery

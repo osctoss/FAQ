@@ -6,6 +6,7 @@ const authService = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   me: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
+  requestAccess: (data) => api.post('/auth/request-access', data),
 };
 
 export default authService;
