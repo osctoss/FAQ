@@ -6,10 +6,11 @@ const rtqService = {
   submitQuestion: (data) => api.post('/rtq/question', data),
   addAnswer: (id, data) => api.post(`/rtq/${id}/answer`, data),
   upvoteAnswer: (answerId) => api.post(`/rtq/answer/upvote/${answerId}`),
-  approveAnswer: (answerId, data) => api.patch(`/rtq/approve-answer/${answerId}`, data),
-  markAccepted: (id, data) => api.patch(`/rtq/mark-accepted/${id}`, data),
+  approveAnswer: (answerId) => api.patch(`/rtq/approve-answer/${answerId}`),
+  markAccepted: (id) => api.patch(`/rtq/mark-accepted/${id}`),
   remove: (id) => api.delete(`/rtq/${id}`),
-  report: (id, data) => api.post(`/rtq/report/${id}`, data),
+  report: (id) => api.post(`/rtq/report/${id}`),
+  convertToFAQ: (id) => api.post(`/rtq/convert/${id}`),
 };
 
 export default rtqService;

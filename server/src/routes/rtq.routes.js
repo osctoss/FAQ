@@ -9,31 +9,18 @@ import { requireNotRestricted } from '../middleware/qp.middleware.js';
 
 const router = Router();
 
+// ⚠️ Specific paths MUST come before /:id to avoid being captured as an ID param
 router.get('/', authenticate, listRTQs);
-router.get('/:id', authenticate, getRTQ);
-
-// Submit question — student/moderator (with restriction check)
 router.post('/question', authenticate, authorizeRoles('student', 'moderator', 'senior'), requireNotRestricted, submitQuestion);
-
-// Add answer — any authenticated user
-router.post('/:id/answer', authenticate, requireNotRestricted, addAnswer);
-
-// Upvote answer
 router.post('/answer/upvote/:answerId', authenticate, upvoteAnswer);
 
-// Approve answer — moderator/senior
+// Dynamic paths after
+router.get('/:id', authenticate, getRTQ);
+router.post('/:id/answer', authenticate, requireNotRestricted, addAnswer);
 router.patch('/approve-answer/:answerId', authenticate, authorizeRoles('moderator', 'senior', 'admin'), approveAnswer);
-
-// Mark question accepted — moderator/senior
 router.patch('/mark-accepted/:id', authenticate, authorizeRoles('moderator', 'senior', 'admin'), markAccepted);
-
-// Convert RTQ to FAQ — senior only
 router.post('/convert/:id', authenticate, authorizeRoles('senior', 'admin'), convertToFAQ);
-
-// Report
 router.post('/report/:id', authenticate, reportRTQ);
-
-// Remove RTQ — senior only
 router.delete('/:id', authenticate, authorizeRoles('senior', 'admin'), removeRTQ);
 
 export default router;
