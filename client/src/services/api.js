@@ -14,7 +14,11 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   res => res.data,
   err => {
-    if (err.response?.status === 401) {
+    const url = err.config?.url || '';
+    // Don't redirect on auth or RAG endpoints — they may 401 legitimately
+    // and we don't want to break the login flow or render loop
+    const isInternalEndpoint = url.startsWith('/auth') || url.startsWith('/rag');
+    if (err.response?.status === 401 && !isInternalEndpoint) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
