@@ -9,7 +9,8 @@
 A semantic query-resolution and FAQ generation platform with a QP (Quality Point) reputation economy and role-based access control. Users raise real-time queries, get peer/moderator/senior answers, and high-quality content graduates into an approved FAQ knowledge base.
 
 **Location:** `D:\faq`
-**Status:** Phase 1 (server), Phase 2 (client pages), Phase 3 (root wiring) complete
+**Status:** Fully running. Server on port 5000, client on port 3000.
+**Known issues fixed:** React Router v7 future flags + descendant Routes wildcard warnings
 
 ---
 
