@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+CHANGELOG.md
+
+# Lock files (optional - keep if you want strict dependency locking)
+# package-lock.json
+# yarn.lock
+
+# Uploads / media
+uploads/
+
+# Test coverage
+coverage/
