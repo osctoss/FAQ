@@ -2,6 +2,7 @@
   "name": "qa-platform",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Q&A platform with RAG-based semantic query resolution and QP economy",
   "scripts": {
     "dev": "concurrently -n \"server,client\" -c \"cyan,magenta\" \"npm run server\" \"npm run client\"",
