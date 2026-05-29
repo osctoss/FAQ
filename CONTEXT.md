@@ -1,6 +1,6 @@
 # CONTEXT.md — Q&A Platform Project Context
 
-> Generated: 2026-05-28 | Last updated: 2026-05-28 (email whitelist + Qdrant + admin role system)
+> Generated: 2026-05-28 | Last updated: 2026-05-29 (FAQ category upvoting)
 
 ---
 
@@ -34,10 +34,12 @@ FAQ-main/
 │       ├── pages/
 │       │   ├── SignupPage.jsx         # Email whitelist gate + request approval flow
 │       │   ├── UserListPage.jsx       # Admin: Users + Whitelist + Access Requests tabs
+│       │   ├── FAQPage.jsx             # Category upvote buttons + ranked sorting
 │       │   └── ... (all other pages)
 │       ├── routes/
 │       └── services/
 │           ├── auth.service.js         # requestAccess method
+│           ├── faq.service.js          # listCategoriesRanked, upvoteCategory
 │           └── admin.service.js        # Whitelist + Access Request API
 ├── server/
 │   └── src/
@@ -49,6 +51,7 @@ FAQ-main/
 │       │   ├── admin.controller.js     # Full user CRUD; role management; block/unblock
 │       │   ├── admin.whitelist.controller.js  # NEW: whitelist + access request mgmt
 │       │   ├── auth.controller.js     # signup restriction; requestAccessUser
+│       │   ├── categoryUpvote.controller.js   # NEW: list ranked categories + toggle upvote
 │       │   └── ... (existing)
 │       ├── middleware/
 │       │   ├── auth.middleware.js     # JWT with role+qp in payload
@@ -57,10 +60,12 @@ FAQ-main/
 │       │   ├── User.model.js          # role: student|moderator|senior|admin
 │       │   ├── RoleRequest.model.js    # Blocked-user re-access requests
 │       │   ├── EmailWhitelist.model.js # NEW: admin-controlled signup email list
-│       │   └── AccessRequest.model.js  # NEW: non-whitelisted signup requests
+│       │   ├── AccessRequest.model.js  # NEW: non-whitelisted signup requests
+│       │   └── CategoryUpvote.model.js # NEW: category upvotes + upvotedBy tracking
 │       ├── routes/
 │       │   ├── admin.routes.js        # Admin-only routes (whitelist + access requests)
 │       │   ├── auth.routes.js         # /request-access endpoint
+│       │   ├── categoryUpvote.routes.js # NEW: /api/faq/categories/ranked, /upvote/:name
 │       │   └── vector.routes.js       # NEW: /api/vector/health, /api/vector/rebuild
 │       └── services/
 │           ├── auth.service.js         # signup checks whitelist; JWT: {id, role, qp}
@@ -154,6 +159,22 @@ FAQ-main/
 | W7 | `pages/SignupPage.jsx` | Shows "Access Restricted" → "Request Approval" button → "Request Submitted" on non-whitelisted signup |
 | W8 | `pages/UserListPage.jsx` | Admin tabs: **Users** + **Email Whitelist** + **Access Requests** |
 
+### 🟠 FAQ Category Upvoting (NEW — v4)
+
+| # | File | Purpose |
+|---|------|---------|
+| C1 | `models/CategoryUpvote.model.js` | Stores `categoryName` (unique), `upvotes`, `upvotedBy` (ObjectId[]), `lastActivity` |
+| C2 | `controllers/categoryUpvote.controller.js` | `listCategoriesWithUpvotes` (merge FAQ_CATEGORIES + DB data, sort by popularity), `upvoteCategory` (toggle on/off, duplicate prevention) |
+| C3 | `routes/categoryUpvote.routes.js` | `GET /api/faq/categories/ranked`, `POST /api/faq/categories/upvote/:categoryName` |
+| C4 | `app.js` | Mounted `/api/faq/categories` **before** `/api/faq` to avoid `:id` param collision |
+| C5 | `services/faq.service.js` (client) | Added `listCategoriesRanked()`, `upvoteCategory(name)` |
+| C6 | `pages/FAQPage.jsx` | Fetches ranked categories on mount; sorts category groups by upvotes desc; inline upvote button per category header; optimistic UI with rollback |
+
+**Design decisions:**
+- Dedicated `CategoryUpvote` collection — zero changes to existing `FAQ.model.js` schema
+- Toggle pattern (upvote/un-upvote) matches existing `upvoteFAQ` behavior
+- Category ranking affects only UI display order — no impact on RAG, QP, or vector sync
+
 ---
 
 ## 🧠 Architecture Notes
@@ -211,3 +232,4 @@ Then call `getTransformerEmbedder()` instead of the TF-IDF embedder. Model: `Xen
 4. Add rate limiting to `/api/auth/signup` and `/api/rag/evaluate-question`
 5. Run `POST /api/vector/rebuild` with `{collection: 'faq'}` or `'rtq'` to reindex after bulk import
 6. Add email sending (SendGrid/Resend) for production OTP delivery
+7. ~~FAQ category upvoting~~ — implemented (v4)
