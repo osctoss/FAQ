@@ -160,7 +160,7 @@ FAQ-main/
 
 ### Qdrant vs MongoDB Responsibilities
 - **MongoDB Atlas**: Application data (users, questions, answers, QP transactions, notifications)
-- **Qdrant Cloud**: Vector embeddings only (384-dim TF-IDF n-gram vectors for FAQ + RTQ semantic search)
+- **Qdrant Cloud**: Vector embeddings only (384-dim TF-IDF/BPE vectors for FAQ + RTQ semantic search)
 - Separation enables O(log n) ANN similarity search instead of O(n) brute-force
 
 ### MongoDB ↔ Qdrant Sync Model
@@ -168,6 +168,32 @@ FAQ-main/
 - Qdrant synced on: RTQ create/delete/status-change, FAQ create/update/delete, RTQ→FAQ conversion
 - If Qdrant fails: MongoDB operation is rolled back (insert/delete) or logged (update/delete)
 - `sync.repair.service.js` can detect missing/stray vectors and full-reindex
+
+### Embedding Model Improvements (Chunks 1–7)
+
+All 7 chunks have been implemented in `rag-engine/embedding/embedder.js`:
+
+| Chunk | Feature | Impact |
+|-------|---------|--------|
+| 1 | Hash-based stable indexing + importance truncation | Deterministic vectors; top 384 n-grams by weight |
+| 2 | Separate IDF vocabularies per corpus (FAQ / RTQ) | No cross-contamination between corpra |
+| 3 | Persist IDF vocabulary to disk (`vocab-faq.json`, `vocab-rtq.json`) | Cold start recovery — no IDF degradation |
+| 4 | Stop word filtering + Porter stemming | Cleaner token streams; unified morphology |
+| 5 | Word-level n-grams (1-2) alongside char n-grams | Phrase-level matching ("reset password" as unit) |
+| 6 | Pure-JS BPE tokenizer (opt-in) | Better subword capture; enable with `{ useBPE: true }` |
+| 7 | Transformer service stub (`transformer.service.js`) | Ready for `@xenova/transformers`; falls back to TF-IDF |
+
+**To enable BPE mode:**
+```js
+const embedder = new Embedder({ useBPE: true, bpeVocabSize: 4000 });
+embedder.trainBPE(corpusTexts, 4000); // call once at startup
+```
+
+**To enable transformer embeddings:**
+```bash
+npm install @xenova/transformers
+```
+Then call `getTransformerEmbedder()` instead of the TF-IDF embedder. Model: `Xenova/all-MiniLM-L6-v2` (384-dim).
 
 ### Email Whitelist Gate
 - ALL signups require email in `EmailWhitelist` collection

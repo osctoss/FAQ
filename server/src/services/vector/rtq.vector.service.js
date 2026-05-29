@@ -21,7 +21,7 @@
  */
 
 import { getQdrantClient, getCollectionNames, withRetry } from '../../config/qdrant.js';
-import { generateEmbedding, buildRTQText } from './embedding.service.js';
+import { generateEmbedding, buildRTQText, CORPUS_RTQ } from './embedding.service.js';
 import logger from '../../utils/logger.js';
 
 const { rtq: COLLECTION } = getCollectionNames();
@@ -44,7 +44,7 @@ export async function insertRTQVector(rtq) {
   }
 
   const text = buildRTQText(rtq);
-  const embedding = generateEmbedding(text);
+  const embedding = generateEmbedding(text, CORPUS_RTQ);
   const payload = buildPayload(rtq);
 
   await withRetry(async () => {
@@ -91,13 +91,13 @@ export async function searchRTQSimilarity(queryEmbedding, { limit = 5, status = 
 }
 
 export async function searchRTQByText(text, { limit = 5, status = null, category = null } = {}) {
-  const embedding = generateEmbedding(text);
+  const embedding = generateEmbedding(text, CORPUS_RTQ);
   return searchRTQSimilarity(embedding, { limit, status, category });
 }
 
 export async function updateRTQVector(rtqId, updates) {
   const text = buildRTQText(updates);
-  const embedding = generateEmbedding(text);
+  const embedding = generateEmbedding(text, CORPUS_RTQ);
   const payload = buildPayload(updates);
 
   await withRetry(async () => {

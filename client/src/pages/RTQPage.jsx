@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import rtqService from '../services/rtq.service';
 import { useAuth } from '../context/AuthContext';
+import { useQP } from '../context/QPContext';
 import { timeAgo } from '../utils/helpers';
 import QPBadge from '../components/QPBadge';
 
@@ -14,6 +15,7 @@ export default function RTQPage() {
   const [answerForms, setAnswerForms] = useState({});
   const [answerLoading, setAnswerLoading] = useState({});
   const { user } = useAuth();
+  const { refreshQP } = useQP();
 
   const loadRTQs = async () => {
     setLoading(true);
@@ -33,23 +35,56 @@ export default function RTQPage() {
     const answerText = answerForms[rtqId];
     if (!answerText?.trim()) return;
     setAnswerLoading(prev => ({ ...prev, [rtqId]: true }));
+    const optimisticAnswer = {
+      _id: `temp-${Date.now()}`,
+      answer: answerText,
+      userId: { name: user.name },
+      upvotes: 0,
+      upvotedBy: [],
+      createdAt: new Date().toISOString(),
+    };
+    setRtqs(prev => prev.map(r =>
+      r._id === rtqId ? { ...r, answers: [...(r.answers || []), optimisticAnswer] } : r
+    ));
+    setAnswerForms(prev => ({ ...prev, [rtqId]: '' }));
     try {
       await rtqService.addAnswer(rtqId, { answer: answerText });
-      setAnswerForms(prev => ({ ...prev, [rtqId]: '' }));
-      loadRTQs();
     } catch (err) {
+      setRtqs(prev => prev.map(r =>
+        r._id === rtqId ? { ...r, answers: r.answers.filter(a => a._id !== optimisticAnswer._id) } : r
+      ));
       alert(err.message || 'Failed to submit answer');
     } finally {
       setAnswerLoading(prev => ({ ...prev, [rtqId]: false }));
     }
   };
 
-  const handleUpvoteAnswer = async (answerId) => {
+  const handleUpvoteAnswer = async (rtqId, answerId) => {
+    if (answerId.startsWith('temp-')) return;
+    const rtq = rtqs.find(r => r._id === rtqId);
+    const ans = rtq?.answers?.find(a => a._id === answerId);
+    if (!rtq || !ans) return;
+    const hasUpvoted = ans.upvotedBy?.some(id => id === user?._id || id._id === user?._id);
+    setRtqs(prev => prev.map(r => {
+      if (r._id !== rtqId) return r;
+      return {
+        ...r,
+        answers: r.answers.map(a => {
+          if (a._id !== answerId) return a;
+          return {
+            ...a,
+            upvotes: hasUpvoted ? a.upvotes - 1 : a.upvotes + 1,
+            upvotedBy: hasUpvoted
+              ? a.upvotedBy.filter(id => id !== user?._id && id._id !== user?._id)
+              : [...(a.upvotedBy || []), user?._id],
+          };
+        }),
+      };
+    }));
     try {
       await rtqService.upvoteAnswer(answerId);
-      loadRTQs();
     } catch (err) {
-      console.error(err);
+      loadRTQs();
     }
   };
 
@@ -128,7 +163,7 @@ export default function RTQPage() {
                             <p className="text-sm text-primary mb-2">{ans.answer}</p>
                             <div className="flex items-center gap-3">
                               <button
-                                onClick={() => handleUpvoteAnswer(ans._id)}
+                                onClick={() => handleUpvoteAnswer(rtq._id, ans._id)}
                                 className={`text-xs px-2 py-1 rounded border ${ans.upvotedBy?.some(id => id === user?._id || id._id === user?._id)
                                   ? 'bg-primary text-white border-primary'
                                   : 'border-border text-muted hover:border-primary'}`}

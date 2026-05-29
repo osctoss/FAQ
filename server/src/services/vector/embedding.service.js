@@ -30,10 +30,18 @@
  * - Qdrant stores ONLY the embedding vector + minimal payload (mongoId, text)
  * - This separation keeps Qdrant lean and fast for similarity search
  * - The mongoId payload lets us look up the full MongoDB document after a match
+ *
+ * CHUNK 2: Corpus-aware embeddings.
+ * - FAQ operations use embedder with corpusName='faq'
+ * - RTQ operations use embedder with corpusName='rtq'
+ * - Each corpus has isolated IDF vocabulary — no cross-contamination.
  */
 
 import embedder from '../../../../rag-engine/embedding/embedder.js';
 import logger from '../../utils/logger.js';
+
+export const CORPUS_FAQ = 'faq';
+export const CORPUS_RTQ = 'rtq';
 
 export function preprocessText(text) {
   if (!text || typeof text !== 'string') return '';
@@ -48,10 +56,10 @@ export function buildRTQText(rtq) {
   return [rtq.question, rtq.category, ...(rtq.tags || [])].join(' ');
 }
 
-export function generateEmbedding(text) {
+export function generateEmbedding(text, corpusName = null) {
   const clean = preprocessText(text);
   if (!clean) return new Array(384).fill(0);
-  const embedding = embedder.embedSingle(clean);
+  const embedding = embedder.embedSingle(clean, corpusName);
 
   if (!embedding || embedding.length === 0) {
     logger.warn('[Embedding] Generated empty embedding for text:', clean.substring(0, 50));
@@ -61,19 +69,19 @@ export function generateEmbedding(text) {
   return embedding;
 }
 
-export function generateMultipleEmbeddings(texts) {
+export function generateMultipleEmbeddings(texts, corpusName = null) {
   if (!texts || texts.length === 0) return [];
-  return texts.map(t => generateEmbedding(t));
+  return texts.map(t => generateEmbedding(t, corpusName));
 }
 
-export function rebuildCorpus(texts) {
+export function rebuildCorpus(corpusName, texts) {
   if (!texts || texts.length === 0) {
-    logger.warn('[Embedding] rebuildCorpus called with empty texts — IDF vocabulary not updated');
+    logger.warn(`[Embedding] rebuildCorpus(${corpusName}) called with empty texts — IDF vocabulary not updated`);
     return;
   }
   const cleanTexts = texts.map(preprocessText).filter(Boolean);
-  embedder.rebuildVocabulary(cleanTexts);
-  logger.info(`[Embedding] IDF vocabulary rebuilt from ${cleanTexts.length} documents`);
+  embedder.rebuildVocabulary(corpusName, cleanTexts);
+  logger.info(`[Embedding] IDF vocabulary rebuilt for corpus '${corpusName}' from ${cleanTexts.length} documents`);
 }
 
 export function getEmbedder() {

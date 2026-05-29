@@ -67,29 +67,36 @@ export default function UserListPage() {
   };
 
   const handleRestrict = async (userId) => {
+    const u = users.find(u => u._id === userId);
+    const prev = users;
+    setUsers(prev => prev.map(u => u._id === userId ? { ...u, restrictedAt: u.restrictedAt ? null : new Date() } : u));
     try {
       await userService.restrictUser(userId);
-      loadUsers();
     } catch (err) {
+      setUsers(prev);
       alert(err.message);
     }
   };
 
   const handleRemove = async (userId) => {
     if (!confirm('Remove this user? This cannot be undone.')) return;
+    const prev = users;
+    setUsers(prev => prev.filter(u => u._id !== userId));
     try {
       await userService.removeUser(userId);
-      loadUsers();
     } catch (err) {
+      setUsers(prev);
       alert(err.message);
     }
   };
 
   const handleAssignRole = async (userId, role) => {
+    const prev = users;
+    setUsers(prev => prev.map(u => u._id === userId ? { ...u, role } : u));
     try {
       await adminService.assignRole({ userId, role });
-      loadUsers();
     } catch (err) {
+      setUsers(prev);
       alert(err.message);
     }
   };
@@ -97,42 +104,52 @@ export default function UserListPage() {
   const handleAddToWhitelist = async (e) => {
     e.preventDefault();
     if (!wlEmail) return;
+    const entry = { _id: `temp-${Date.now()}`, email: wlEmail, note: wlNote, addedBy: { name: user?.name }, addedAt: new Date().toISOString() };
+    const prev = whitelist;
+    setWhitelist(prev => [...prev, entry]);
+    setWlEmail('');
+    setWlNote('');
     try {
-      await adminService.addToWhitelist({ email: wlEmail, note: wlNote });
-      setWlEmail('');
-      setWlNote('');
-      loadWhitelist();
+      const result = await adminService.addToWhitelist({ email: wlEmail, note: wlNote });
     } catch (err) {
+      setWhitelist(prev);
+      setWlEmail(wlEmail);
+      setWlNote(wlNote);
       alert(err.message);
     }
   };
 
   const handleRemoveFromWhitelist = async (id) => {
     if (!confirm('Remove this email from the whitelist?')) return;
+    const prev = whitelist;
+    setWhitelist(prev => prev.filter(e => e._id !== id));
     try {
       await adminService.removeFromWhitelist(id);
-      loadWhitelist();
     } catch (err) {
+      setWhitelist(prev);
       alert(err.message);
     }
   };
 
   const handleApproveAccessRequest = async (requestId) => {
+    const prev = accessRequests;
+    setAccessRequests(prev => prev.filter(r => r._id !== requestId));
     try {
       await adminService.approveAccessRequest(requestId);
-      loadAccessRequests();
     } catch (err) {
+      setAccessRequests(prev);
       alert(err.message);
     }
   };
 
   const handleRejectAccessRequest = async (requestId) => {
-    const note = rejectNote[requestId] || '';
+    const prev = accessRequests;
+    setAccessRequests(prev => prev.filter(r => r._id !== requestId));
     try {
-      await adminService.rejectAccessRequest(requestId, note);
+      await adminService.rejectAccessRequest(requestId, rejectNote[requestId] || '');
       setRejectNote(prev => ({ ...prev, [requestId]: '' }));
-      loadAccessRequests();
     } catch (err) {
+      setAccessRequests(prev);
       alert(err.message);
     }
   };

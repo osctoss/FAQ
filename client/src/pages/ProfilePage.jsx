@@ -34,7 +34,7 @@ export default function ProfilePage() {
     e.preventDefault();
     try {
       await userService.updateProfile(editForm);
-      await refreshUser();
+      const updated = await refreshUser();
       setEditMode(false);
       setSaveMsg('Profile updated!');
       setTimeout(() => setSaveMsg(''), 3000);

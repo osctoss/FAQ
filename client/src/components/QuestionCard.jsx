@@ -2,9 +2,14 @@ import { useState } from 'react';
 import { MessageCircle, TrendingUp, AlertCircle, Check } from 'lucide-react';
 import { cn, timeAgo } from '../utils/helpers';
 import UpvoteButton from './UpvoteButton';
+import { useAuth } from '../context/AuthContext';
 
 export default function QuestionCard({ question, onUpvote, showAnswers = false, children }) {
-  const hasUpvoted = question.upvotedBy?.includes('currentUser');
+  const { user } = useAuth();
+
+  const hasUpvoted = question.upvotedBy?.some(id =>
+    (id?._id || id)?.toString() === user?._id?.toString()
+  );
 
   return (
     <div className="card card-hover p-4 space-y-3">
@@ -40,11 +45,13 @@ export default function QuestionCard({ question, onUpvote, showAnswers = false, 
             ))}
           </div>
         </div>
-        <UpvoteButton
-          upvotes={question.upvotes}
-          onUpvote={onUpvote}
-          hasUpvoted={hasUpvoted}
-        />
+        {onUpvote && (
+          <UpvoteButton
+            upvotes={question.upvotes}
+            onUpvote={onUpvote}
+            hasUpvoted={hasUpvoted}
+          />
+        )}
       </div>
       {children && <div className="border-t border-border pt-3">{children}</div>}
     </div>

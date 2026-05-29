@@ -55,12 +55,12 @@ const PUBLIC_PATHS = ['/login', '/signup'];
 
 export default function App() {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const isPublic = PUBLIC_PATHS.includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-surface">
-      {user && !isPublic && <Nav />}
+      {user && !isPublic && <Nav refreshUser={refreshUser} />}
       <Routes>
         {/* Public */}
         <Route path="/login"  element={<PublicOnly><LoginPage /></PublicOnly>} />

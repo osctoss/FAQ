@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useQP } from '../context/QPContext';
 import QPBadge from '../components/QPBadge';
 import userService from '../services/user.service';
 import adminService from '../services/admin.service';
@@ -8,6 +9,7 @@ import notificationService from '../services/notification.service';
 
 export default function SeniorDashboard() {
   const { user } = useAuth();
+  const { refreshQP } = useQP();
   const [pendingUsers, setPendingUsers] = useState([]);
   const [stats, setStats] = useState({ rank: '-', totalUsers: 0 });
   const [unreadCount, setUnreadCount] = useState(0);
@@ -32,19 +34,25 @@ export default function SeniorDashboard() {
   }, []);
 
   const handleApprove = async (userId) => {
+    const prev = pendingUsers;
+    setPendingUsers(prev => prev.filter(u => u._id !== userId));
     try {
       await adminService.approveUser(userId);
-      setPendingUsers(prev => prev.filter(u => u._id !== userId));
+      refreshQP?.();
     } catch (err) {
+      setPendingUsers(prev);
       alert(err.message);
     }
   };
 
   const handleReject = async (userId) => {
+    const prev = pendingUsers;
+    setPendingUsers(prev => prev.filter(u => u._id !== userId));
     try {
       await adminService.rejectUser(userId);
-      setPendingUsers(prev => prev.filter(u => u._id !== userId));
+      refreshQP?.();
     } catch (err) {
+      setPendingUsers(prev);
       alert(err.message);
     }
   };

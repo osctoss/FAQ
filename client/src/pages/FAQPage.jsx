@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import faqService from '../services/faq.service';
 import { useAuth } from '../context/AuthContext';
+import { useQP } from '../context/QPContext';
 import QPBadge from '../components/QPBadge';
 import UpvoteButton from '../components/UpvoteButton';
 import { FAQ_CATEGORIES } from '../utils/constants';
@@ -14,6 +15,7 @@ export default function FAQPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const { refreshQP } = useQP();
 
   const loadFAQs = async () => {
     setLoading(true);
@@ -31,10 +33,30 @@ export default function FAQPage() {
   useEffect(() => { loadFAQs(); }, []);
 
   const handleUpvote = async (faqId) => {
+    const prevGrouped = grouped;
+    setGrouped(prev => {
+      const next = {};
+      for (const [cat, items] of Object.entries(prev)) {
+        next[cat] = items.map(faq => {
+          if (faq._id !== faqId) return faq;
+          const alreadyUpvoted = faq.upvotedBy?.some(id => (id?._id || id)?.toString() === user?._id?.toString());
+          return {
+            ...faq,
+            upvotes: alreadyUpvoted ? Math.max(0, faq.upvotes - 1) : faq.upvotes + 1,
+            upvotedBy: alreadyUpvoted
+              ? faq.upvotedBy.filter(id => (id?._id || id)?.toString() !== user?._id?.toString())
+              : [...(faq.upvotedBy || []), { _id: user._id }]
+          };
+        });
+      }
+      return next;
+    });
+
     try {
       await faqService.upvote(faqId);
-      loadFAQs();
+      refreshQP?.();
     } catch (err) {
+      setGrouped(prevGrouped);
       console.error(err);
     }
   };
@@ -63,7 +85,6 @@ export default function FAQPage() {
         )}
       </div>
 
-      {/* Search + filter */}
       <div className="flex gap-3 mb-6">
         <input
           type="search"
@@ -98,9 +119,9 @@ export default function FAQPage() {
                       <div className="flex gap-4">
                         <div className="flex flex-col items-center gap-1 min-w-[40px]">
                           <UpvoteButton
-                            count={faq.upvotes}
+                            upvotes={faq.upvotes}
                             onUpvote={() => handleUpvote(faq._id)}
-                            hasUpvoted={faq.upvotedBy?.some(id => id._id === user?._id || id === user?._id)}
+                            hasUpvoted={faq.upvotedBy?.some(id => (id?._id || id)?.toString() === user?._id?.toString())}
                           />
                         </div>
                         <div className="flex-1">
@@ -111,9 +132,7 @@ export default function FAQPage() {
                             <span>•</span>
                             <span>{timeAgo(faq.createdAt)}</span>
                             {faq.isTrending && (
-                              <>
-                                <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Trending</span>
-                              </>
+                              <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Trending</span>
                             )}
                           </div>
                         </div>

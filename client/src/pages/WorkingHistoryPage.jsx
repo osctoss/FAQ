@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import rtqService from '../services/rtq.service';
 import { useAuth } from '../context/AuthContext';
+import { useQP } from '../context/QPContext';
 import { timeAgo } from '../utils/helpers';
 
 export default function WorkingHistoryPage() {
   const { user } = useAuth();
+  const { refreshQP } = useQP();
   const [rtqs, setRtqs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,28 +27,37 @@ export default function WorkingHistoryPage() {
 
   const handleRemove = async (id) => {
     if (!confirm('Remove this RTQ? This cannot be undone.')) return;
+    const prev = rtqs;
+    setRtqs(prev => prev.filter(r => r._id !== id));
     try {
       await rtqService.remove(id);
-      load();
     } catch (err) {
+      setRtqs(prev);
       alert(err.message);
     }
   };
 
   const handleConvertToFAQ = async (id) => {
+    const prev = rtqs;
+    setRtqs(prev => prev.map(r => r._id === id ? { ...r, _converting: true } : r));
     try {
       await rtqService.convertToFAQ(id);
-      load();
+      setRtqs(prev => prev.map(r => r._id === id ? { ...r, _converting: false, isAccepted: true } : r));
+      refreshQP?.();
     } catch (err) {
+      setRtqs(prev);
       alert(err.message);
     }
   };
 
   const handleMarkAccepted = async (id) => {
+    const prev = rtqs;
+    setRtqs(prev => prev.map(r => r._id === id ? { ...r, isAccepted: true, status: 'resolved' } : r));
     try {
       await rtqService.markAccepted(id);
-      load();
+      refreshQP?.();
     } catch (err) {
+      setRtqs(prev);
       alert(err.message);
     }
   };
@@ -70,6 +81,9 @@ export default function WorkingHistoryPage() {
                     {rtq.isAccepted && (
                       <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Resolved</span>
                     )}
+                    {rtq._converting && (
+                      <span className="text-xs text-blue-500">Converting...</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted">
                     <span>{rtq.category}</span>
@@ -86,11 +100,6 @@ export default function WorkingHistoryPage() {
                       </>
                     )}
                   </div>
-                  {rtq.isAccepted && rtq.approvedAnswer && (
-                    <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
-                      ✓ Converted to FAQ
-                    </span>
-                  )}
                 </div>
 
                 {isSeniorOrAdmin && (

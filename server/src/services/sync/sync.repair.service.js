@@ -42,7 +42,7 @@ import FAQ from '../../models/FAQ.model.js';
 import RTQ from '../../models/RTQ.model.js';
 import * as faqVector from '../vector/faq.vector.service.js';
 import * as rtqVector from '../vector/rtq.vector.service.js';
-import { rebuildCorpus, generateEmbedding, buildFAQText, buildRTQText } from '../vector/embedding.service.js';
+import { rebuildCorpus, generateEmbedding, buildFAQText, buildRTQText, CORPUS_FAQ, CORPUS_RTQ } from '../vector/embedding.service.js';
 import { getCollectionStats } from '../vector/collection.service.js';
 import logger from '../../utils/logger.js';
 
@@ -257,7 +257,7 @@ export async function rebuildFAQRVectors() {
   }
 
   const texts = faqs.map(f => buildFAQText(f));
-  rebuildCorpus(texts);
+  rebuildCorpus(CORPUS_FAQ, texts);
 
   let rebuilt = 0;
   let failed = 0;
@@ -286,7 +286,7 @@ export async function rebuildRTQVectors() {
   }
 
   const texts = rtqs.map(r => buildRTQText(r));
-  rebuildCorpus(texts);
+  rebuildCorpus(CORPUS_RTQ, texts);
 
   let rebuilt = 0;
   let failed = 0;

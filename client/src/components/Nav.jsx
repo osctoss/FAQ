@@ -1,9 +1,9 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useQP } from '../context/QPContext';
+import { useEffect } from 'react';
 
-// FIX #16: New persistent navigation bar
-export default function Nav() {
+export default function Nav({ refreshUser }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

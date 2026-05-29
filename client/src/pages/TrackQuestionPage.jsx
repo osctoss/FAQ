@@ -30,10 +30,12 @@ export default function TrackQuestionPage() {
   };
 
   const handleStatusUpdate = async (questionId, status) => {
+    const prev = questions;
+    setQuestions(prev => prev.map(q => q._id === questionId ? { ...q, status } : q));
     try {
       await questionService.updateStatus(questionId, { status });
-      load();
     } catch (err) {
+      setQuestions(prev);
       alert(err.message);
     }
   };

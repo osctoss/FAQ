@@ -21,7 +21,7 @@
  */
 
 import { getQdrantClient, getCollectionNames, withRetry } from '../../config/qdrant.js';
-import { generateEmbedding, buildFAQText } from './embedding.service.js';
+import { generateEmbedding, buildFAQText, CORPUS_FAQ } from './embedding.service.js';
 import logger from '../../utils/logger.js';
 
 const { faq: COLLECTION } = getCollectionNames();
@@ -44,7 +44,7 @@ export async function insertFAQVector(faq) {
   }
 
   const text = buildFAQText(faq);
-  const embedding = generateEmbedding(text);
+  const embedding = generateEmbedding(text, CORPUS_FAQ);
   const payload = buildPayload(faq);
 
   await withRetry(async () => {
@@ -90,13 +90,13 @@ export async function searchFAQSimilarity(queryEmbedding, { limit = 5, category 
 }
 
 export async function searchFAQByText(text, { limit = 5, category = null } = {}) {
-  const embedding = generateEmbedding(text);
+  const embedding = generateEmbedding(text, CORPUS_FAQ);
   return searchFAQSimilarity(embedding, { limit, category });
 }
 
 export async function updateFAQVector(faqId, updates) {
   const text = buildFAQText(updates);
-  const embedding = generateEmbedding(text);
+  const embedding = generateEmbedding(text, CORPUS_FAQ);
   const payload = buildPayload(updates);
 
   await withRetry(async () => {

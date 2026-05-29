@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import faqService from '../services/faq.service';
+import { useQP } from '../context/QPContext';
 import { FAQ_CATEGORIES } from '../utils/constants';
 
 export default function AddFAQPage() {
@@ -8,6 +9,7 @@ export default function AddFAQPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { refreshQP } = useQP();
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -25,6 +27,7 @@ export default function AddFAQPage() {
     try {
       const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean);
       await faqService.create({ ...form, tags });
+      refreshQP?.();
       navigate('/faq');
     } catch (err) {
       setError(err.message || 'Failed to create FAQ');

@@ -32,9 +32,10 @@ export function QPProvider({ children }) {
 
   const awardQP = (amount) => setQP(prev => prev + amount);
   const deductQP = (amount) => setQP(prev => prev - Math.abs(amount));
+  const syncQP = (newQP) => setQP(newQP);
 
   return (
-    <QPContext.Provider value={{ qp, loading, fetchQP, awardQP, deductQP }}>
+    <QPContext.Provider value={{ qp, loading, fetchQP, awardQP, deductQP, refreshQP: fetchQP, syncQP }}>
       {children}
     </QPContext.Provider>
   );
