@@ -352,7 +352,8 @@ export async function convertToFAQ(req, res) {
       await syncRTQDelete(rtq._id);
       await syncFAQInsert(faq);
     } catch (vecErr) {
-      logger.error(`[RTQ-Controller] RTQ→FAQ conversion Qdrant sync failed: ${vecErr.message}`);
+      logger.error(`[RTQ-Controller] RTQ→FAQ Qdrant sync failed: ${vecErr.message}`);
+      return res.status(500).json({ message: 'Server error during vector sync' });
     }
 
     res.status(201).json({ message: 'Converted to FAQ', faq });

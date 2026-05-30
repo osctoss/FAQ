@@ -1,4 +1,5 @@
 import User from '../models/User.model.js';
+import FAQ from '../models/FAQ.model.js';
 import RoleRequest from '../models/RoleRequest.model.js';
 import { notifyUser } from '../services/notification.service.js';
 import bcrypt from 'bcryptjs';
@@ -320,6 +321,55 @@ export async function deleteUser(req, res) {
     await RoleRequest.deleteMany({ userId: req.params.id });
 
     res.json({ message: 'User deleted permanently' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+export async function bulkImportFAQs(req, res) {
+  try {
+    const { faqs } = req.body;
+    if (!Array.isArray(faqs) || faqs.length === 0) {
+      return res.status(400).json({ message: 'faqs array is required' });
+    }
+
+    const adminUser = req.user;
+    const created = [];
+    const errors = [];
+
+    for (let i = 0; i < faqs.length; i++) {
+      const item = faqs[i];
+      try {
+        const existing = await FAQ.findOne({ question: item.question });
+        if (existing) {
+          errors.push({ index: i, question: item.question, error: 'Duplicate — skipped' });
+          continue;
+        }
+        const faq = await FAQ.create({
+          question: item.question,
+          answer: item.answer,
+          category: item.category || 'General',
+          tags: Array.isArray(item.tags) ? item.tags : [],
+          createdBy: adminUser._id,
+        });
+        created.push({ _id: faq._id, question: faq.question, category: faq.category });
+      } catch (err) {
+        errors.push({ index: i, question: item.question, error: err.message });
+      }
+    }
+
+    const { syncFAQInsert } = await import('../services/sync/faq.sync.service.js');
+    for (const faq of created) {
+      await syncFAQInsert(faq).catch(err => console.error('[BulkImport] Qdrant sync failed for', faq._id, err.message));
+    }
+
+    res.json({
+      imported: created.length,
+      skipped: errors.filter(e => e.error.includes('Duplicate')).length,
+      errors: errors.filter(e => !e.error.includes('Duplicate')),
+      details: created,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

@@ -7,7 +7,7 @@ import logger from '../utils/logger.js';
 
 export async function listFAQs(req, res) {
   try {
-    const { category, sort = 'upvotes', page = 1, limit = 50 } = req.query;
+    const { category, sort = 'upvotes', sortDir = -1, page = 1, limit = 50 } = req.query;
     const filter = {};
     if (category) filter.category = category;
 
