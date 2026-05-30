@@ -25,11 +25,11 @@ export default function SignupPage() {
       setUserId(res.userId);
       setStep(2);
     } catch (err) {
-      if (err.restricted) {
+      if (err.response?.data?.restricted) {
         setRestricted(true);
         setError('Access Restricted. This email is not on the accepted list.');
       } else {
-        setError(err.message || 'Signup failed');
+        setError(err.response?.data?.message || err.message || 'Signup failed');
       }
     } finally {
       setLoading(false);
@@ -44,7 +44,7 @@ export default function SignupPage() {
       await requestAccess(form);
       setAccessRequested(true);
     } catch (err) {
-      setError(err.message || 'Failed to submit request');
+      setError(err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to submit request');
     } finally {
       setLoading(false);
     }

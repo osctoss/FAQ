@@ -3,7 +3,8 @@ import {
   getUsers, getUser, addUser, updateUser, deleteUser,
   assignRole, blockUser, unblockUser, reactivateUser,
   getPendingUsers, approveUser, rejectUser,
-  getRoleRequests, approveRoleRequest, rejectRoleRequest
+  getRoleRequests, approveRoleRequest, rejectRoleRequest,
+  bulkImportFAQs
 } from '../controllers/admin.controller.js';
 import {
   getWhitelist, addToWhitelist, removeFromWhitelist,
