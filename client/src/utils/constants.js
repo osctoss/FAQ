@@ -12,8 +12,15 @@ export const QUESTION_STATUS = {
 };
 
 export const FAQ_CATEGORIES = [
-  'General', 'Technical', 'Debugging', 'Authentication',
-  'Database', 'API', 'Frontend', 'DevOps', 'Career', 'Other'
+  'Admissions',
+  'Academics',
+  'Placements',
+  'Campus Life',
+  'Fees & Scholarships',
+  'Examinations',
+  'Hostel & Facilities',
+  'Clubs & Activities',
+  'General'
 ];
 
 export const DEFAULT_TAGS = ['question', 'help', 'issue', 'tutorial', 'discussion'];
