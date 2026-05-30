@@ -21,13 +21,14 @@ router.get('/stats', authenticate, async (req, res) => {
     res.json({ totalUsers, unreadCount, rank });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', detail: err.message });
   }
 });
 
 router.get('/activity', authenticate, async (req, res) => {
   try {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    console.log('[Dashboard] User status:', req.user.status, 'role:', req.user.role);
 
     const [recentRTQs, recentFAQs, recentUsers, recentTransactions] = await Promise.all([
       RTQ.find({ createdAt: { $gte: since } })
@@ -76,7 +77,7 @@ router.get('/activity', authenticate, async (req, res) => {
         { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
       ]),
       User.aggregate([
-        { $match: { createdAt: { $gte: new Date(now - 6 * 86400000), status: 'active' } } },
+        { $match: { $expr: { $and: [{ $gte: ['$createdAt', new Date(now - 6 * 86400000)] }, { $eq: ['$status', 'active'] }] } } },
         { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
       ]),
     ]);
@@ -96,8 +97,8 @@ router.get('/activity', authenticate, async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('[Dashboard activity ERROR]', err);
+    res.status(500).json({ message: 'Server error', detail: err.message });
   }
 });
 

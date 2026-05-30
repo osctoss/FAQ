@@ -7,7 +7,8 @@ import logger from '../utils/logger.js';
 
 export async function listFAQs(req, res) {
   try {
-    const { category, sort = 'upvotes', sortDir = -1, page = 1, limit = 50 } = req.query;
+    const { category, sort = 'upvotes', sortDir, page = 1, limit = 30 } = req.query;
+    const sortDirNum = sortDir ? parseInt(sortDir, 10) : -1;
     const filter = {};
     if (category) filter.category = category;
 
@@ -15,14 +16,15 @@ export async function listFAQs(req, res) {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
-    const [total, faqs] = await Promise.all([
+    const [total, faqs, dbCategories] = await Promise.all([
       FAQ.countDocuments(filter),
       FAQ.find(filter)
         .populate('createdBy', 'name role')
-        .sort({ [sort]: sortDir || -1, createdAt: -1 })
+        .sort({ [sort]: sortDirNum, createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
         .lean(),
+      FAQ.distinct('category'),
     ]);
 
     const grouped = faqs.reduce((acc, faq) => {
@@ -31,10 +33,12 @@ export async function listFAQs(req, res) {
       return acc;
     }, {});
 
-    res.json({ faqs, grouped, categories: FAQ_CATEGORIES, pagination: { page: pageNum, limit: limitNum, total } });
+    const categories = dbCategories;
+
+    res.json({ faqs, grouped, categories, pagination: { page: pageNum, limit: limitNum, total } });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('[FAQ listFAQs ERROR]', err);
+    res.status(500).json({ message: 'Server error', detail: err.message });
   }
 }
 
