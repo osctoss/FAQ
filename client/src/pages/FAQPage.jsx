@@ -133,7 +133,7 @@ export default function FAQPage() {
     }
   };
   const filteredCategories = selectedCategory === 'all'
-    ? sortedCategoryNames.filter(name => grouped[name]?.length > 0)
+    ? Object.keys(grouped).filter(name => grouped[name]?.length > 0)
     : [selectedCategory];
 
   const searchFiltered = (items) => {
@@ -175,7 +175,7 @@ export default function FAQPage() {
           className="input w-auto"
         >
           <option value="all">All Categories</option>
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          {FAQ_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <select value={sort} onChange={e => setSort(e.target.value)} className="input w-auto">
           <option value="upvotes">Most Upvoted</option>
