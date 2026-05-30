@@ -1,6 +1,6 @@
 # CONTEXT.md — PippaQ Project Context
 
-> Last updated: 2026-05-30 | PippaQ branding, Sentence Transformers + Qdrant Integration, and Auto-Upvote Execution Engine
+> Last updated: 2026-05-30 | PippaQ branding, Role-Based RTQ Actions, Dashboard Cleanup, and Qdrant/Transformers loops
 
 ---
 
@@ -125,6 +125,11 @@ Implemented a new service [autoupvote.service.js](file:///d:/FAQs/FAQ/server/src
 ### 4. Premium Branding & Font Stack (PippaQ)
 * **Fonts:** Added preconnect tags and loaded **Playfair Display** (elegant serif brand accent) and **Outfit** (sleek sans-serif body/headers) from Google Fonts in [client/index.html](file:///d:/FAQs/FAQ/client/index.html).
 * **Visuals:** Updated the navbar, login page, and signup pages to feature the elegant, high-contrast **PippaQ** brand name with customized letter tracking.
+
+### 5. Role-Based UI Constraints & Dashboard UX Refinements
+* **Ask a Question button:** Restructured [RTQPage.jsx](file:///d:/FAQs/FAQ/client/src/pages/RTQPage.jsx) so the `+ Ask a Question` button is hidden for `'admin'` and `'senior'` roles, remaining visible only for `'student'` and `'moderator'` users.
+* **Dashboard Layouts:** Removed the redundant "Notifications" quick link cards from both [StudentDashboard.jsx](file:///d:/FAQs/FAQ/client/src/pages/StudentDashboard.jsx) and [SeniorDashboard.jsx](file:///d:/FAQs/FAQ/client/src/pages/SeniorDashboard.jsx) (as a dedicated bell indicator exists in the header).
+* **Grid Balancing:** Balanced the dashboards' remaining quick link cards (5 on Student, 3 on Senior) to fill the grid rows perfectly without gaps and updated corresponding skeleton loading layout animations.
 
 ---
 
