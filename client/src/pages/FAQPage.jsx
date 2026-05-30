@@ -141,13 +141,28 @@ export default function FAQPage() {
     }
   };
   const filteredCategories = selectedCategory === 'all'
-    ? Object.keys(grouped).filter(name => grouped[name]?.length > 0)
+    ? [
+        ...sortedCategoryNames.filter(name => grouped[name]?.length > 0),
+        ...Object.keys(grouped).filter(name => grouped[name]?.length > 0 && !sortedCategoryNames.includes(name))
+      ]
     : [selectedCategory];
 
   const searchFiltered = (items) => {
     if (!search) return items;
     const q = search.toLowerCase();
     return items.filter(f => f.question.toLowerCase().includes(q) || f.answer.toLowerCase().includes(q));
+  };
+
+  const sortItems = (items) => {
+    const sorted = [...items];
+    if (sort === 'upvotes') {
+      sorted.sort((a, b) => b.upvotes - a.upvotes);
+    } else if (sort === 'newest') {
+      sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } else if (sort === 'oldest') {
+      sorted.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    }
+    return sorted;
   };
 
   const getCategoryUpvoteInfo = (categoryName) => {
@@ -199,7 +214,7 @@ export default function FAQPage() {
       ) : (
         <div className="space-y-8">
           {filteredCategories.map(category => {
-            const items = searchFiltered(grouped[category] || []);
+            const items = sortItems(searchFiltered(grouped[category] || []));
             if (items.length === 0) return null;
             const catInfo = getCategoryUpvoteInfo(category);
             return (
