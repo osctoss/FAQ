@@ -388,47 +388,77 @@ export async function convertToFAQ(req, res) {
     });
     if (!rtq) return res.status(404).json({ message: 'RTQ not found' });
 
-    const answers = [...(rtq.answers || [])].sort((a, b) => b.upvotes - a.upvotes);
+    // Prevent duplicate FAQ creation
+    if (rtq.faqId) {
+      return res.status(400).json({ message: 'This RTQ has already been converted to FAQ' });
+    }
+
+    const { answerId, answer: editedAnswer, category: editedCategory, tags: editedTags } = req.body || {};
 
     let selectedAnswerDoc = null;
+    let finalAnswer = editedAnswer;
+    let finalCategory = editedCategory || rtq.category;
+    let finalTags = Array.isArray(editedTags)
+      ? editedTags
+      : (typeof editedTags === 'string'
+          ? editedTags.split(',').map(t => t.trim()).filter(Boolean)
+          : rtq.tags);
 
-    // Priority 1: Senior's own answer (written by the converting Senior/Admin)
-    selectedAnswerDoc = answers.find(ans => 
-      (ans.userId?._id || ans.userId)?.toString() === req.user._id.toString()
-    );
+    const answers = [...(rtq.answers || [])].sort((a, b) => b.upvotes - a.upvotes);
 
-    // Priority 2: Senior-approved answer (approved by any senior or admin)
+    // If frontend specified a custom chosen answerId
+    if (answerId) {
+      selectedAnswerDoc = answers.find(ans => (ans._id || ans).toString() === answerId.toString());
+    }
+
+    // Run the 4-tier selection logic as fallback
     if (!selectedAnswerDoc) {
+      // Priority 1: Senior's own answer (written by the converting Senior/Admin)
       selectedAnswerDoc = answers.find(ans => 
-        ans.approvals?.some(u => u.role === 'senior' || u.role === 'admin')
+        (ans.userId?._id || ans.userId)?.toString() === req.user._id.toString()
       );
+
+      // Priority 2: Senior-approved answer (approved by any senior or admin)
+      if (!selectedAnswerDoc) {
+        selectedAnswerDoc = answers.find(ans => 
+          ans.approvals?.some(u => u.role === 'senior' || u.role === 'admin')
+        );
+      }
+
+      // Priority 3: Moderator-approved answer (approved by any moderator)
+      if (!selectedAnswerDoc) {
+        selectedAnswerDoc = answers.find(ans => 
+          ans.approvals?.some(u => u.role === 'moderator')
+        );
+      }
+
+      // Priority 4: Otherwise → most upvoted answer
+      if (!selectedAnswerDoc && answers.length > 0) {
+        selectedAnswerDoc = answers[0];
+      }
     }
 
-    // Priority 3: Moderator-approved answer (approved by any moderator)
-    if (!selectedAnswerDoc) {
-      selectedAnswerDoc = answers.find(ans => 
-        ans.approvals?.some(u => u.role === 'moderator')
-      );
+    if (!finalAnswer) {
+      if (!selectedAnswerDoc) {
+        return res.status(400).json({ message: 'No answer available to convert' });
+      }
+      finalAnswer = selectedAnswerDoc.answer;
     }
-
-    // Priority 4: Otherwise → most upvoted answer
-    if (!selectedAnswerDoc && answers.length > 0) {
-      selectedAnswerDoc = answers[0];
-    }
-
-    if (!selectedAnswerDoc) {
-      return res.status(400).json({ message: 'No answer available to convert' });
-    }
-
-    const selectedAnswer = selectedAnswerDoc.answer;
 
     const faq = await FAQ.create({
       question: rtq.question,
-      answer: selectedAnswer,
-      category: rtq.category,
-      tags: rtq.tags,
-      createdBy: req.user._id
+      answer: finalAnswer,
+      category: finalCategory,
+      tags: finalTags,
+      createdBy: req.user._id,
+      rtqId: rtq._id // Bidirectional traceability on FAQ
     });
+
+    // Save bidirectional traceability link on RTQ, resolve RTQ status
+    rtq.faqId = faq._id;
+    rtq.isAccepted = true;
+    rtq.status = 'resolved';
+    await rtq.save();
 
     if (selectedAnswerDoc) {
       selectedAnswerDoc.isSelectedForFAQ = true;

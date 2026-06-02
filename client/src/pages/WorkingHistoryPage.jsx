@@ -126,12 +126,6 @@ export default function WorkingHistoryPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => handleConvertToFAQ(rtq._id)}
-                      className="text-xs px-3 py-1.5 border border-blue-200 rounded text-blue-700 hover:bg-blue-50"
-                    >
-                      → FAQ
-                    </button>
-                    <button
                       onClick={() => handleRemove(rtq._id)}
                       className="text-xs px-3 py-1.5 border border-red-200 rounded text-red-500 hover:bg-red-50"
                     >
