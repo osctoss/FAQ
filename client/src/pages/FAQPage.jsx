@@ -293,21 +293,15 @@ export default function FAQPage() {
                                 </button>
                                 {activeFAQSettingsId === faq._id && (
                                   <div className="absolute right-0 mt-1 w-48 bg-white border border-border rounded-lg shadow-lg z-20 py-1">
-                                    {!faq.markedForReview ? (
-                                      <button
-                                        onClick={() => {
-                                          handleReviewFAQ(faq._id);
-                                          setActiveFAQSettingsId(null);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-xs text-amber-600 hover:bg-amber-50 font-semibold flex items-center gap-1.5"
-                                      >
-                                        ⚠️ Flag for Review
-                                      </button>
-                                    ) : (
-                                      <div className="px-3 py-2 text-xs text-muted italic flex items-center gap-1.5 border-b border-border">
-                                        <StatusBadge status="markedForReview" />
-                                      </div>
-                                    )}
+                                    <button
+                                      onClick={() => {
+                                        handleReviewFAQ(faq._id);
+                                        setActiveFAQSettingsId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-xs text-amber-600 hover:bg-amber-50 font-semibold flex items-center gap-1.5"
+                                    >
+                                      ⚠️ {faq.markedForReview ? 'Remove Flag' : 'Flag for Review'}
+                                    </button>
                                     <button
                                       onClick={() => {
                                         handleToggleTrendingFAQ(faq._id);

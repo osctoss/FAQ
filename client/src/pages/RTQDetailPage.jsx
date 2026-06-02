@@ -397,15 +397,17 @@ export default function RTQDetailPage() {
                   {rtq.status === 'rejected' && (
                     <StatusBadge status="rejected" />
                   )}
-                  {!rtq.markedForReview && (
-                    <button
-                      onClick={handleReviewQuestion}
-                      className="p-1.5 border border-amber-200 text-amber-600 rounded hover:bg-amber-50 transition-colors"
-                      title="Flag for Review"
-                    >
-                      <Flag className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button
+                    onClick={handleReviewQuestion}
+                    className={`p-1.5 border rounded transition-colors ${
+                      rtq.markedForReview
+                        ? 'bg-amber-100 text-amber-700 border-amber-300'
+                        : 'border-amber-200 text-amber-600 hover:bg-amber-50'
+                    }`}
+                    title={rtq.markedForReview ? 'Remove Flag' : 'Flag for Review'}
+                  >
+                    <Flag className="w-4 h-4" />
+                  </button>
                 </div>
               )}
 
