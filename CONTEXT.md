@@ -1,6 +1,6 @@
 # CONTEXT.md — PippaQ Project Context
 
-> Last updated: 2026-06-02 | Whitelist Access Requests, Question Status Marking System, PippaQ branding, Standardized Categories
+> Last updated: 2026-06-02 | Dashboard Role Badges, Whitelist Access Requests, Question Status Marking System, PippaQ branding
 
 ---
 
@@ -155,6 +155,15 @@ Implemented a new service [autoupvote.service.js](file:///d:/FAQs/FAQ/server/src
   - Submitting a request creates an `AccessRequest` document in the database (`pending` status).
   - Admin view (`UserListPage.jsx` > `Access Requests` tab) can **Approve** (adds email to whitelist, creates active `'student'` user) or **Reject** (marks request as rejected).
 * **Fix & Alignment:** Aligned [SignupPage.jsx](file:///d:/FAQs/FAQ/client/src/pages/SignupPage.jsx) error handlers to resolve a mapping mismatch with the custom Axios response interceptor (`api.js`), which rejects promises directly with the payload data object, restoring full visibility of the "Request Approval" flow.
+
+### 9. Dashboard Role Status Visibility
+* **Dashboard Header Badges:** Integrated a beautiful, styled, and role-based **Role Status Badge** inside the header of both `StudentDashboard.jsx` and `SeniorDashboard.jsx`.
+* **Dynamic Role Representation:** Displays high-contrast HSL badges corresponding to the user's role:
+  - `'student'`: Slate badge (`Student`)
+  - `'moderator'`: Purple badge (`Moderator`)
+  - `'senior'`: Blue badge (`Senior`)
+  - `'admin'`: Red badge (`Admin` / `Admin Dashboard` header)
+* **Compatibility:** Completely non-disruptive, preserves all existing stats, rank queries, and grid balancing actions.
 
 ---
 
