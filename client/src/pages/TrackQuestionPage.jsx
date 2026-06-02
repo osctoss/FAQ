@@ -97,7 +97,7 @@ export default function TrackQuestionPage() {
                           </select>
                         </div>
                         {rtq.isAccepted && (
-                          <StatusBadge status="resolved" />
+                          <StatusBadge status="accepted" />
                         )}
                         {rtq.status === 'rejected' && (
                           <StatusBadge status="rejected" />

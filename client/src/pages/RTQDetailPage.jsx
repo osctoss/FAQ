@@ -315,7 +315,7 @@ export default function RTQDetailPage() {
                   {rtq.isAccepted && (
                     <>
                       <span>•</span>
-                      <StatusBadge status="resolved" />
+                      <StatusBadge status="accepted" />
                     </>
                   )}
                   {rtq.status === 'rejected' && (

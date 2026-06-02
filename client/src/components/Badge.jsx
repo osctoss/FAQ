@@ -9,6 +9,7 @@ export function StatusBadge({ status }) {
     trending:       { label: 'Trending',           icon: CheckCircle, className: 'badge-info' },
     markedForReview:{ label: 'Flagged',            icon: AlertTriangle, className: 'badge-warning' },
     approved:       { label: 'Approved',           icon: CheckCircle, className: 'badge-success' },
+    accepted:       { label: 'Accepted',           icon: CheckCircle, className: 'badge-info' },
     pending:        { label: 'Pending',            icon: Clock,       className: 'badge-warning' },
   };
 

@@ -318,7 +318,6 @@ export async function markAccepted(req, res) {
     }
 
     rtq.isAccepted = true;
-    rtq.status = 'resolved';
     rtq.acceptedBy = req.user._id;
     await rtq.save();
 

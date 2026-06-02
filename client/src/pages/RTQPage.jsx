@@ -353,7 +353,7 @@ export default function RTQPage() {
                       <div className="flex items-start gap-2 mb-1 flex-wrap">
                         <Link to={`/rtq/${rtq._id}`} className="font-semibold text-primary hover:underline">{rtq.question}</Link>
                         {rtq.isAccepted && (
-                          <StatusBadge status="resolved" />
+                          <StatusBadge status="accepted" />
                         )}
                         {rtq.status === 'rejected' && (
                           <StatusBadge status="rejected" />
