@@ -92,5 +92,6 @@ export default function ProfilePage() {
           <button type="submit" className="btn-primary text-sm">Change Password</button>
         </form>
       </div>
+      </div>
   );
 }
