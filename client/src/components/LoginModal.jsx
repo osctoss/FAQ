@@ -1,64 +1,32 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { X, Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { LogIn } from 'lucide-react';
 
 export default function LoginModal({ isOpen, onClose }) {
-  const navigate = useNavigate();
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setVisible(true);
-    } else {
-      const t = setTimeout(() => setVisible(false), 200);
-      return () => clearTimeout(t);
-    }
-  }, [isOpen]);
-
-  if (!visible) return null;
+  if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
+    <div className="fixed inset-0 glass-overlay z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
-        style={{ animation: 'fadeInUp 0.2s ease-out' }}
+        className="bg-white rounded-2xl shadow-card-elevated max-w-sm w-full p-8 animate-scaleIn border border-border/60"
+        onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Lock className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h3 className="font-bold text-primary">Sign in required</h3>
-              <p className="text-xs text-muted">to perform this action</p>
-            </div>
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent to-violet-600 flex items-center justify-center mx-auto mb-4">
+            <LogIn className="w-7 h-7 text-white" />
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-muted transition-colors">
-            <X className="w-4 h-4" />
-          </button>
+          <h2 className="text-xl font-bold text-primary">Sign in required</h2>
+          <p className="text-sm text-muted mt-1">You need to be logged in to perform this action.</p>
         </div>
-
-        <div className="p-5">
-          <p className="text-sm text-muted mb-5">
-            Please sign up or log in to continue. You'll need an account to upvote and participate.
-          </p>
-          <div className="flex flex-col gap-3">
-            <button
-              onClick={() => { onClose(); navigate('/login'); }}
-              className="w-full btn-primary py-2.5"
-            >
-              Go to Login
-            </button>
-            <button
-              onClick={() => { onClose(); navigate('/signup'); }}
-              className="w-full btn-secondary py-2.5"
-            >
-              Sign Up
-            </button>
-          </div>
+        <div className="space-y-3">
+          <Link to="/login" className="btn-gradient w-full block text-center" onClick={onClose}>
+            Sign in
+          </Link>
+          <Link to="/signup" className="btn-outline w-full block text-center" onClick={onClose}>
+            Create account
+          </Link>
+          <button onClick={onClose} className="btn-ghost w-full text-sm">
+            Cancel
+          </button>
         </div>
       </div>
     </div>
