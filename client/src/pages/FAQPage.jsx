@@ -12,6 +12,7 @@ import { Spinner } from '../components/SkeletonLoader';
 import { FAQ_CATEGORIES } from '../utils/constants';
 import { timeAgo } from '../utils/helpers';
 import { Search, BookOpen, Pencil, Trash2, ChevronDown, ChevronUp, Plus, SlidersHorizontal, Eye, Flag, ChevronLeft, ChevronRight, TrendingUp as TrendingIcon, ArrowBigUp } from 'lucide-react';
+import LoginModal from '../components/LoginModal';
 
 const categoryIcons = {
   'About the internship': '🎓',
@@ -41,6 +42,7 @@ export default function FAQPage() {
   const [expandedId, setExpandedId] = useState(null);
   const [conversionRequests, setConversionRequests] = useState([]);
   const [rankedCategories, setRankedCategories] = useState([]);
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
   const limit = 15;
 
   const scrollRef = useRef(null);
@@ -94,6 +96,7 @@ export default function FAQPage() {
   };
 
   const handleUpvote = async (faqId) => {
+    if (!user) { setLoginModalOpen(true); return; }
     const faq = faqs.find(f => f._id === faqId);
     const hasUpvoted = faq?.upvotedBy?.some(uid => (uid?._id || uid)?.toString() === user?._id?.toString());
     setFaqs(prev => prev.map(f => {
@@ -113,7 +116,7 @@ export default function FAQPage() {
   };
 
   const handleCategoryUpvote = async (categoryName) => {
-    if (!user) return;
+    if (!user) { setLoginModalOpen(true); return; }
     const prevRanked = rankedCategories;
     setRankedCategories(prev => {
       return prev.map(cat => {
@@ -375,7 +378,6 @@ export default function FAQPage() {
                   {catName !== 'Uncategorized' && (
                     <button
                       onClick={() => handleCategoryUpvote(catName)}
-                      disabled={!user}
                       className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all border ${
                         catInfo.hasUpvoted
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60 shadow-sm shadow-emerald-50'
@@ -405,7 +407,6 @@ export default function FAQPage() {
                             upvotes={faq.upvotes}
                             onUpvote={() => handleUpvote(faq._id)}
                             hasUpvoted={hasUpvoted}
-                            disabled={!user}
                           />
                           <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-semibold text-primary leading-snug mb-1.5">{faq.question}</h3>
@@ -535,6 +536,7 @@ export default function FAQPage() {
       )}
 
       <BackToTop />
+      <LoginModal isOpen={loginModalOpen} onClose={() => setLoginModalOpen(false)} />
     </div>
   );
 }

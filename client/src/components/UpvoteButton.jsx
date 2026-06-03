@@ -4,7 +4,8 @@ import { ArrowBigUp } from 'lucide-react';
 export default function UpvoteButton({ upvotes, onUpvote, hasUpvoted, disabled }) {
   const [animating, setAnimating] = useState(false);
 
-  const handleClick = () => {
+  const handleClick = (e) => {
+    e.stopPropagation();
     if (disabled) return;
     setAnimating(true);
     onUpvote?.();
