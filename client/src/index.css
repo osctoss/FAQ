@@ -79,10 +79,10 @@
            transition-all duration-200 active:scale-[0.97]
            disabled:opacity-50 disabled:cursor-not-allowed
            shadow-md hover:shadow-glow;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #d97706, #9a3412);
   }
   .btn-gradient:hover {
-    background: linear-gradient(135deg, #4338ca, #6d28d9);
+    background: linear-gradient(135deg, #b45309, #7c2d12);
   }
 
   .btn-gradient-sm {
@@ -334,7 +334,7 @@
 
   /* ─── Gradient text ─── */
   .text-gradient {
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #d97706, #9a3412);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -350,7 +350,7 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #d97706, #9a3412);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
@@ -451,17 +451,17 @@
 
   /* Gradient background mesh for auth pages */
   .bg-mesh {
-    background-color: #f8fafc;
+    background-color: #fdfbf7;
     background-image:
-      radial-gradient(at 20% 20%, rgba(79, 70, 229, 0.08) 0px, transparent 50%),
-      radial-gradient(at 80% 20%, rgba(124, 58, 237, 0.06) 0px, transparent 50%),
-      radial-gradient(at 50% 80%, rgba(79, 70, 229, 0.04) 0px, transparent 50%);
+      radial-gradient(at 20% 20%, rgba(217, 119, 6, 0.07) 0px, transparent 50%),
+      radial-gradient(at 80% 20%, rgba(154, 52, 18, 0.05) 0px, transparent 50%),
+      radial-gradient(at 50% 80%, rgba(217, 119, 6, 0.03) 0px, transparent 50%);
   }
 
   /* Floating decorative blobs */
   .blob-accent {
-    @apply absolute rounded-full blur-3xl opacity-20 pointer-events-none;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    @apply absolute rounded-full blur-3xl opacity-15 pointer-events-none;
+    background: linear-gradient(135deg, #d97706, #9a3412);
   }
 
   /* Glassmorphism overlay */
@@ -498,7 +498,7 @@
     content: '';
     @apply absolute bottom-0 left-0 h-0.5 rounded-full;
     width: 40px;
-    background: linear-gradient(90deg, #4f46e5, #7c3aed);
+    background: linear-gradient(90deg, #d97706, #9a3412);
   }
 
   /* Hide scrollbar utility */

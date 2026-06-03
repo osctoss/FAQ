@@ -115,9 +115,12 @@ export default function Nav({ refreshUser }) {
         <div className="flex items-center gap-1">
           <Link
             to="/dashboard"
-            className="font-brand text-gradient mr-5 text-xl tracking-tight hover:opacity-80 transition-opacity font-bold"
+            className="flex items-center gap-2 mr-5 hover:opacity-80 transition-opacity"
           >
-            PippaQ
+            <img src="/PippaQ1.webp" alt="PippaQ Logo" className="w-7 h-7 object-contain" />
+            <span className="font-brand text-gradient text-xl tracking-tight font-bold">
+              PippaQ
+            </span>
           </Link>
           {/* Desktop nav links */}
           <div className="hidden md:flex items-center gap-0.5">

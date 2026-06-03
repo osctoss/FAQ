@@ -37,6 +37,7 @@ export default function FAQPage() {
   const [search, setSearch] = useState(searchParams.get('q') || '');
   const [category, setCategory] = useState(searchParams.get('category') || '');
   const [sort, setSort] = useState(searchParams.get('sort') || 'upvotes');
+  const [reviewOnTop, setReviewOnTop] = useState(false);
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const [total, setTotal] = useState(0);
   const [expandedId, setExpandedId] = useState(null);
@@ -264,7 +265,7 @@ export default function FAQPage() {
                 onClick={() => { setCategory(''); setPage(1); }}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 cursor-pointer shrink-0 snap-center text-xs font-semibold ${
                   !category 
-                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-500 text-white shadow-md shadow-indigo-100' 
+                    ? 'bg-gradient-to-r from-accent to-violet-600 border-accent/80 text-white shadow-md shadow-accent/10' 
                     : 'bg-white border-slate-100 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm'
                 }`}
               >
@@ -277,7 +278,7 @@ export default function FAQPage() {
                   onClick={() => { setCategory(cat); setPage(1); }}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-full border transition-all duration-200 cursor-pointer shrink-0 snap-center text-xs font-semibold ${
                     category === cat 
-                      ? 'bg-gradient-to-r from-indigo-600 to-violet-600 border-indigo-500 text-white shadow-md shadow-indigo-100' 
+                      ? 'bg-gradient-to-r from-accent to-violet-600 border-accent/80 text-white shadow-md shadow-accent/10' 
                       : 'bg-white border-slate-100 text-slate-600 hover:bg-slate-50 hover:border-slate-300 hover:shadow-sm'
                   }`}
                 >
@@ -300,10 +301,25 @@ export default function FAQPage() {
 
         {/* Sort & Stats Row */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <p className="text-xs text-muted font-medium">
-            Showing <span className="text-primary font-bold">{total}</span> FAQs
-            {category && <span> in <span className="text-accent font-semibold">{category}</span></span>}
-          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <p className="text-xs text-muted font-medium">
+              Showing <span className="text-primary font-bold">{total}</span> FAQs
+              {category && <span> in <span className="text-accent font-semibold">{category}</span></span>}
+            </p>
+            {isModeratorOrAbove && (
+              <button
+                onClick={() => setReviewOnTop(v => !v)}
+                className={`btn-outline-sm flex items-center gap-1.5 transition-all duration-200 py-1 px-2.5 ${
+                  reviewOnTop 
+                    ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400 font-semibold' 
+                    : 'hover:bg-slate-100 text-muted'
+                }`}
+              >
+                <Flag className={`w-3.5 h-3.5 ${reviewOnTop ? 'fill-amber-500 text-amber-600' : ''}`} />
+                Review on Top
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="w-3.5 h-3.5 text-muted" />
             <div className="pill-group bg-slate-100/80 p-0.5 rounded-xl border border-slate-200/40">
@@ -369,6 +385,12 @@ export default function FAQPage() {
         <div className="space-y-8">
           {Object.entries(faqsByCategory).map(([catName, catFaqs]) => {
             const catInfo = getCategoryUpvoteInfo(catName);
+            const processedFaqs = reviewOnTop
+              ? [
+                  ...catFaqs.filter(f => f.markedForReview),
+                  ...catFaqs.filter(f => !f.markedForReview)
+                ]
+              : catFaqs;
             return (
               <div key={catName}>
                 {/* Category Header */}
@@ -392,7 +414,7 @@ export default function FAQPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {catFaqs.map(faq => {
+                  {processedFaqs.map(faq => {
                     const isExpanded = expandedId === faq._id;
                     const hasUpvoted = faq.upvotedBy?.some(uid => (uid?._id || uid)?.toString() === user?._id?.toString());
 

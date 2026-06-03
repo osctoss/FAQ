@@ -107,8 +107,8 @@ export default function SignupPage() {
         <div className="blob-accent w-48 h-48 top-1/3 right-1/4 opacity-15" />
 
         <div className="relative z-10 max-w-md text-center">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent to-violet-600 flex items-center justify-center mx-auto mb-8 shadow-glow animate-float">
-            <span className="text-white font-brand font-bold text-3xl">P</span>
+          <div className="w-24 h-24 flex items-center justify-center mx-auto mb-8 animate-float">
+            <img src="/PippaQ1.webp" alt="PippaQ Logo" className="w-full h-full object-contain filter drop-shadow-[0_0_15px_rgba(217,119,6,0.3)]" />
           </div>
           <h2 className="font-brand text-4xl font-bold text-primary mb-4 tracking-tight">
             Join <span className="text-gradient">PippaQ</span>
@@ -124,8 +124,8 @@ export default function SignupPage() {
         <div className="w-full max-w-md">
           {/* Mobile brand */}
           <div className="text-center mb-6 lg:hidden">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-accent to-violet-600 flex items-center justify-center mx-auto mb-4 shadow-glow">
-              <span className="text-white font-brand font-bold text-2xl">P</span>
+            <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <img src="/PippaQ1.webp" alt="PippaQ Logo" className="w-full h-full object-contain filter drop-shadow-[0_0_10px_rgba(217,119,6,0.2)]" />
             </div>
           </div>
 

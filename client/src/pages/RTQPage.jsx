@@ -27,6 +27,7 @@ export default function RTQPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [flaggedOnTop, setFlaggedOnTop] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [selectedActionId, setSelectedActionId] = useState(null);
   const [selectedAnswerId, setSelectedAnswerId] = useState(null);
@@ -252,6 +253,19 @@ export default function RTQPage() {
             <option value="">All Categories</option>
             {FAQ_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+          {isSeniorOrAdmin && (
+            <button
+              onClick={() => setFlaggedOnTop(v => !v)}
+              className={`btn-outline-sm flex items-center gap-1.5 transition-all duration-200 ${
+                flaggedOnTop 
+                  ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100 hover:border-amber-400 font-semibold' 
+                  : 'hover:bg-slate-100 text-muted'
+              }`}
+            >
+              <Flag className={`w-3.5 h-3.5 ${flaggedOnTop ? 'fill-amber-500 text-amber-600' : ''}`} />
+              Flagged on Top
+            </button>
+          )}
         </div>
       </div>
 
@@ -266,7 +280,13 @@ export default function RTQPage() {
         />
       ) : (
         <div className="space-y-3">
-          {filtered.map(rtq => {
+          {(flaggedOnTop
+            ? [
+                ...filtered.filter(r => r.markedForReview),
+                ...filtered.filter(r => !r.markedForReview)
+              ]
+            : filtered
+          ).map(rtq => {
             const isExpanded = expandedId === rtq._id;
             const isOwner = user && (rtq.postedBy?._id || rtq.postedBy)?.toString() === user._id.toString();
 
