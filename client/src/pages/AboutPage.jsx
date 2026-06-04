@@ -190,6 +190,75 @@ export default function AboutPage() {
                 stroke-dasharray: 6, 4;
                 animation: flowDash 1.2s linear infinite;
               }
+              @keyframes hotspotPulseBlue {
+                0% {
+                  transform: scale(0.6);
+                  opacity: 0.9;
+                }
+                100% {
+                  transform: scale(2.2);
+                  opacity: 0;
+                }
+              }
+              @keyframes hotspotPulseGreen {
+                0% {
+                  transform: scale(0.6);
+                  opacity: 0.9;
+                }
+                100% {
+                  transform: scale(2.2);
+                  opacity: 0;
+                }
+              }
+              @keyframes hotspotPulseOrange {
+                0% {
+                  transform: scale(0.6);
+                  opacity: 0.9;
+                }
+                100% {
+                  transform: scale(2.2);
+                  opacity: 0;
+                }
+              }
+              @keyframes releaseBlue {
+                0% {
+                  transform: translate(0, 0) scale(0.5);
+                  opacity: 0.8;
+                }
+                100% {
+                  transform: translate(-180px, -100px) scale(1.3);
+                  opacity: 0;
+                }
+              }
+              @keyframes releaseGreen {
+                0% {
+                  transform: translate(0, 0) scale(0.5);
+                  opacity: 0.8;
+                }
+                100% {
+                  transform: translate(180px, -100px) scale(1.3);
+                  opacity: 0;
+                }
+              }
+              @keyframes releaseOrange {
+                0% {
+                  transform: translate(0, 0) scale(0.5);
+                  opacity: 0.8;
+                }
+                100% {
+                  transform: translate(0, 120px) scale(1.3);
+                  opacity: 0;
+                }
+              }
+              .animate-release-blue {
+                animation: releaseBlue 1.6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+              }
+              .animate-release-green {
+                animation: releaseGreen 1.6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+              }
+              .animate-release-orange {
+                animation: releaseOrange 1.6s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+              }
             `}</style>
 
             <div className="flex items-center gap-3 border-b border-border/50 pb-4">
@@ -248,11 +317,14 @@ export default function AboutPage() {
                     <circle
                       cx="330"
                       cy="120"
-                      r="14"
+                      r="8"
                       fill="none"
                       stroke="#3b82f6"
                       strokeWidth="2"
-                      className="animate-ping"
+                      style={{
+                        transformOrigin: '330px 120px',
+                        animation: 'hotspotPulseBlue 1.5s ease-out infinite'
+                      }}
                     />
                   )}
 
@@ -267,11 +339,14 @@ export default function AboutPage() {
                     <circle
                       cx="470"
                       cy="120"
-                      r="14"
+                      r="8"
                       fill="none"
                       stroke="#10b981"
                       strokeWidth="2"
-                      className="animate-ping"
+                      style={{
+                        transformOrigin: '470px 120px',
+                        animation: 'hotspotPulseGreen 1.5s ease-out infinite'
+                      }}
                     />
                   )}
 
@@ -286,12 +361,37 @@ export default function AboutPage() {
                     <circle
                       cx="400"
                       cy="270"
-                      r="14"
+                      r="8"
                       fill="none"
                       stroke="#d97706"
                       strokeWidth="2"
-                      className="animate-ping"
+                      style={{
+                        transformOrigin: '400px 270px',
+                        animation: 'hotspotPulseOrange 1.5s ease-out infinite'
+                      }}
                     />
+                  )}
+                </g>
+
+                {/* Released Flowing Circles */}
+                <g className="pointer-events-none">
+                  {activeFeature === 'circle' && (
+                    <g transform="translate(400, 190)">
+                      <circle cx="0" cy="0" r="5" fill="#3b82f6" className="animate-release-blue" />
+                      <circle cx="0" cy="0" r="5" fill="#3b82f6" className="animate-release-blue" style={{ animationDelay: '0.8s' }} />
+                    </g>
+                  )}
+                  {activeFeature === 'jata' && (
+                    <g transform="translate(400, 190)">
+                      <circle cx="0" cy="0" r="5" fill="#10b981" className="animate-release-green" />
+                      <circle cx="0" cy="0" r="5" fill="#10b981" className="animate-release-green" style={{ animationDelay: '0.8s' }} />
+                    </g>
+                  )}
+                  {activeFeature === 'fire' && (
+                    <g transform="translate(400, 190)">
+                      <circle cx="0" cy="0" r="5" fill="#d97706" className="animate-release-orange" />
+                      <circle cx="0" cy="0" r="5" fill="#d97706" className="animate-release-orange" style={{ animationDelay: '0.8s' }} />
+                    </g>
                   )}
                 </g>
 
@@ -475,14 +575,14 @@ export default function AboutPage() {
                 </foreignObject>
 
                 {/* Q Highlight Statement (Center Bottom) */}
-                <foreignObject x="150" y="408" width="500" height="130">
+                <foreignObject x="150" y="405" width="500" height="135">
                   <div 
-                    className={`p-3 rounded-xl border text-center transition-all duration-300 cursor-pointer w-[440px] h-[70px] ${
+                    className={`p-3 rounded-xl border text-center transition-all duration-300 cursor-pointer w-[440px] ${
                       activeFeature === 'q' 
                         ? 'border-indigo-500 bg-indigo-50/10 shadow-[0_0_15px_rgba(99,102,241,0.15)] scale-[1.02]' 
                         : 'border-slate-200/60 bg-white/95 hover:border-indigo-200/60'
                     }`}
-                    style={{ margin: '30px' }}
+                    style={{ height: '92px', margin: '20px 30px' }}
                     onMouseEnter={() => { setActiveFeature('q'); setIsHovered(true); }}
                     onMouseLeave={() => setIsHovered(false)}
                   >
