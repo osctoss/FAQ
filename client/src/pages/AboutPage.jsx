@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import SegmentedControl from '../components/SegmentedControl';
 import Breadcrumb from '../components/Breadcrumb';
 import {
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 
 export default function AboutPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('story');
 
   const tabOptions = [
