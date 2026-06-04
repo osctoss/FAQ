@@ -23,6 +23,7 @@ import TrackQuestionPage from './pages/TrackQuestionPage';
 import WorkingHistoryPage from './pages/WorkingHistoryPage';
 import NotificationsPage from './pages/NotificationsPage';
 import QPHistoryPage from './pages/QPHistoryPage';
+import AboutPage from './pages/AboutPage';
 
 function LoadingScreen() {
   return (
@@ -99,6 +100,7 @@ function AppLayout() {
           <Route path="/signup" element={<PublicOnly><SignupPage /></PublicOnly>} />
           <Route path="/dashboard" element={<DashboardRoute />} />
           <Route path="/faq" element={<FAQPage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/faq/edit/:id" element={<ProtectedRoute allowedRoles={['senior', 'admin']}><FAQEditPage /></ProtectedRoute>} />
           <Route path="/rtq" element={<ProtectedRoute><RTQPage /></ProtectedRoute>} />
           <Route path="/rtq/:id" element={<ProtectedRoute><RTQDetailPage /></ProtectedRoute>} />

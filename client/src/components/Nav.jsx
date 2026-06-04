@@ -114,7 +114,7 @@ export default function Nav({ refreshUser }) {
         {/* Left: Brand + Desktop Links */}
         <div className="flex items-center gap-1">
           <Link
-            to="/dashboard"
+            to="/about"
             className="flex items-center gap-2 mr-5 hover:opacity-80 transition-opacity"
           >
             <img src="/PippaQ1.webp" alt="PippaQ Logo" className="w-7 h-7 object-contain" />
