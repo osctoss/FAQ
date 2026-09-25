@@ -45,7 +45,8 @@ export const QP_RULES = {
 
 export const QP_THRESHOLDS = {
   MIN_TO_ASK_QUESTION: 50,
-  AUTO_PROMOTE_MODERATOR: 500
+  AUTO_PROMOTE_MODERATOR: 500,
+  STARTING_QP: 100
 };
 
 export const RAG_THRESHOLDS = {
@@ -56,13 +57,14 @@ export const RAG_THRESHOLDS = {
 };
 
 export const FAQ_CATEGORIES = [
-  'Admissions',
-  'Academics',
-  'Placements',
-  'Campus Life',
-  'Fees & Scholarships',
-  'Examinations',
-  'Hostel & Facilities',
-  'Clubs & Activities',
+  'About the internship',
+  'Timing and dates',
+  'NOC (No Objection Certificate)',
+  'Selection, offer letter, and certificate',
+  'Work, mentorship, and projects',
+  'Code of conduct - communication channels',
+  'Interviews Related',
+  'Certificate',
+  'Rosetta - your internship journal',
   'General'
 ];

@@ -1,9 +1,12 @@
-// ✅ FIX #10: import useCallback
 import { useState, useEffect, useCallback } from 'react';
 import rtqService from '../services/rtq.service';
 import { useAuth } from '../context/AuthContext';
 import { useQP } from '../context/QPContext';
 import { timeAgo } from '../utils/helpers';
+import { SkeletonCard } from '../components/SkeletonLoader';
+import Breadcrumb from '../components/Breadcrumb';
+import BackToTop from '../components/BackToTop';
+import { StatusBadge } from '../components/Badge';
 
 export default function WorkingHistoryPage() {
   const { user } = useAuth();
@@ -11,11 +14,10 @@ export default function WorkingHistoryPage() {
   const [rtqs, setRtqs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ FIX #10: wrap load in useCallback
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await rtqService.list({ sort: 'createdAt' });
+      const data = await rtqService.list({ sort: 'createdAt', filter: 'history' });
       setRtqs(Array.isArray(data) ? data : data.data || []);
     } catch (err) {
       console.error(err);
@@ -68,10 +70,13 @@ export default function WorkingHistoryPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
+      <Breadcrumb items={[{ label: 'History' }]} />
       <h1 className="text-2xl font-bold text-primary mb-6">Working History</h1>
 
       {loading ? (
-        <div className="text-center py-12 text-muted">Loading...</div>
+        <div className="space-y-4">
+          {[1,2,3].map(i => <SkeletonCard key={i} />)}
+        </div>
       ) : (
         <div className="space-y-4">
           {rtqs.map(rtq => (
@@ -81,7 +86,13 @@ export default function WorkingHistoryPage() {
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-semibold text-primary">{rtq.question}</h3>
                     {rtq.isAccepted && (
-                      <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Resolved</span>
+                      <StatusBadge status="accepted" role={rtq.acceptedBy?.role} />
+                    )}
+                    {rtq.status === 'rejected' && (
+                      <StatusBadge status="rejected" />
+                    )}
+                    {rtq.markedForReview && (
+                      <StatusBadge status="markedForReview" />
                     )}
                     {rtq._converting && (
                       <span className="text-xs text-blue-500">Converting...</span>
@@ -115,12 +126,6 @@ export default function WorkingHistoryPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => handleConvertToFAQ(rtq._id)}
-                      className="text-xs px-3 py-1.5 border border-blue-200 rounded text-blue-700 hover:bg-blue-50"
-                    >
-                      → FAQ
-                    </button>
-                    <button
                       onClick={() => handleRemove(rtq._id)}
                       className="text-xs px-3 py-1.5 border border-red-200 rounded text-red-500 hover:bg-red-50"
                     >
@@ -136,6 +141,7 @@ export default function WorkingHistoryPage() {
           )}
         </div>
       )}
+      <BackToTop />
     </div>
   );
 }

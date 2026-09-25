@@ -35,6 +35,15 @@ const start = async () => {
       logger.warn('[WARN] Qdrant not connected — vector services unavailable. Set QDRANT_URL and QDRANT_API_KEY in .env');
     }
 
+    // Warm up the Sentence Transformer model so the first request isn't slow
+    try {
+      const { warmup } = await import('./services/vector/transformer.service.js');
+      await warmup();
+      logger.info('[INFO] Transformer model warmed up');
+    } catch (warmupErr) {
+      logger.warn('[WARN] Transformer warmup failed — model will load on first request:', warmupErr.message);
+    }
+
     app.listen(config.PORT, () => {
       logger.info(`[INFO] Server running on port ${config.PORT}`);
       logger.info(`[INFO] Environment: ${process.env.NODE_ENV || 'development'}`);

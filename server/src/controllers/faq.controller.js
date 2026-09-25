@@ -7,25 +7,43 @@ import logger from '../utils/logger.js';
 
 export async function listFAQs(req, res) {
   try {
-    const { category, sort = 'upvotes' } = req.query;
+    const { category, sort = 'upvotes', sortDir, page = 1, limit = 30 } = req.query;
+    const sortDirNum = sortDir ? parseInt(sortDir, 10) : -1;
     const filter = {};
-    if (category) filter.category = category;
+    if (category) {
+      let normalizedCategory = category.replace(/[\u2010-\u2015\u2212]/g, '-').replace(/\s*-\s*/g, ' - ');
+      const escapedCategory = normalizedCategory.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const categoryPattern = escapedCategory.replace('\\ -\\ ', '\\s*[\\u2010-\\u2015\\u2212\\-]\\s*');
+      filter.category = { $regex: new RegExp(`^(?:\\d+\\.\\s*)?${categoryPattern}$`, 'i') };
+    }
 
-    const faqs = await FAQ.find(filter)
-      .populate('createdBy', 'name role')
-      .sort({ [sort]: -1, createdAt: -1 });
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const skip = (pageNum - 1) * limitNum;
 
-    // Group by category
+    const [total, faqs, dbCategories] = await Promise.all([
+      FAQ.countDocuments(filter),
+      FAQ.find(filter)
+        .populate('createdBy', 'name role')
+        .sort({ [sort]: sortDirNum, createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      FAQ.distinct('category'),
+    ]);
+
     const grouped = faqs.reduce((acc, faq) => {
       if (!acc[faq.category]) acc[faq.category] = [];
       acc[faq.category].push(faq);
       return acc;
     }, {});
 
-    res.json({ faqs, grouped, categories: FAQ_CATEGORIES });
+    const categories = dbCategories;
+
+    res.json({ faqs, grouped, categories, pagination: { page: pageNum, limit: limitNum, total } });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('[FAQ listFAQs ERROR]', err);
+    res.status(500).json({ message: 'Server error', detail: err.message });
   }
 }
 
@@ -127,6 +145,42 @@ export async function upvoteFAQ(req, res) {
 
     await faq.save();
     res.json({ upvotes: faq.upvotes, upvoted: !alreadyUpvoted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+export async function markFAQForReview(req, res) {
+  try {
+    const faq = await FAQ.findById(req.params.id);
+    if (!faq) return res.status(404).json({ message: 'FAQ not found' });
+    faq.markedForReview = !faq.markedForReview;
+    await faq.save();
+    try {
+      await syncFAQUpdate(req.params.id, faq);
+    } catch (err) {
+      logger.error(`[FAQ-Controller] Qdrant update sync failed for reviewed FAQ ${faq._id}: ${err.message}`);
+    }
+    res.json(faq);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+export async function toggleTrendingFAQ(req, res) {
+  try {
+    const faq = await FAQ.findById(req.params.id);
+    if (!faq) return res.status(404).json({ message: 'FAQ not found' });
+    faq.isTrending = !faq.isTrending;
+    await faq.save();
+    try {
+      await syncFAQUpdate(req.params.id, faq);
+    } catch (err) {
+      logger.error(`[FAQ-Controller] Qdrant update sync failed for trending FAQ ${faq._id}: ${err.message}`);
+    }
+    res.json(faq);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

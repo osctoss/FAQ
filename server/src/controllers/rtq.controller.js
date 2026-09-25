@@ -4,34 +4,61 @@ import FAQ from '../models/FAQ.model.js';
 import User from '../models/User.model.js';
 import { awardQP, deductQP } from '../services/qp.service.js';
 import { notifyUser } from '../services/notification.service.js';
-import { QP_RULES } from '../../../shared/constants.js';
-import embedder from '../../../rag-engine/embedding/embedder.js';
+import { QP_RULES, QP_THRESHOLDS } from '../../../shared/constants.js';
+import { generateEmbedding } from '../services/vector/embedding.service.js';
 import { evaluateQuestion } from '../../../rag-engine/decision-engine/decision.tree.js';
 import { syncRTQInsert, syncRTQDelete, rollbackRTQInsert } from '../services/sync/rtq.sync.service.js';
 import { syncFAQInsert } from '../services/sync/faq.sync.service.js';
+import { autoUpvoteFAQ, autoUpvoteRTQ, getFAQAuthorId, getRTQAuthorId } from '../services/autoupvote.service.js';
 import logger from '../utils/logger.js';
 
 export async function listRTQs(req, res) {
   try {
-    const { sort = 'upvotes', filter } = req.query;
-    const rtqs = await RTQ.find()
+    const { sort = 'upvotes', filter, category, page = 1, limit = 50 } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+
+    let allRtqs = await RTQ.find()
       .populate('postedBy', 'name role')
+      .populate('acceptedBy', 'name role')
       .populate({
         path: 'answers',
-        populate: { path: 'userId', select: 'name role' }
+        populate: [
+          { path: 'userId', select: 'name role' },
+          { path: 'approvedBy', select: 'name role' }
+        ]
       })
-      .sort({ [sort]: -1, createdAt: -1 });
+      .sort({ [sort]: -1, createdAt: -1 })
+      .lean();
 
-    let filtered = rtqs;
     if (filter === 'unresolved') {
-      filtered = rtqs.filter(r => r.status === 'open' && !r.isAccepted);
+      allRtqs = allRtqs.filter(r => ['unresolved', 'open'].includes(r.status) && !r.isAccepted);
     } else if (filter === 'resolved') {
-      filtered = rtqs.filter(r => r.status === 'resolved' || r.isAccepted);
+      allRtqs = allRtqs.filter(r => r.status === 'resolved' || r.isAccepted);
     } else if (filter === 'partial') {
-      filtered = rtqs.filter(r => r.answers.length > 0 && !r.isAccepted);
+      allRtqs = allRtqs.filter(r => r.status === 'partially_resolved' || (r.answers?.length > 0 && !r.isAccepted));
+    } else if (filter === 'accepted') {
+      allRtqs = allRtqs.filter(r => r.isAccepted);
+    } else if (filter === 'rejected') {
+      allRtqs = allRtqs.filter(r => r.status === 'rejected');
+    } else if (filter === 'history') {
+      const faqs = await FAQ.find({ createdBy: req.user._id, rtqId: { $exists: true, $ne: null } }).select('rtqId');
+      const rtqIds = faqs.map(f => f.rtqId.toString());
+      allRtqs = allRtqs.filter(r => rtqIds.includes(r._id.toString()));
     }
 
-    res.json(filtered);
+    if (category) {
+      let normalizedCategory = category.replace(/[\u2010-\u2015\u2212]/g, '-').replace(/\s*-\s*/g, ' - ');
+      const escapedCategory = normalizedCategory.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const categoryPattern = escapedCategory.replace('\\ -\\ ', '\\s*[\\u2010-\\u2015\\u2212\\-]\\s*');
+      const regex = new RegExp(`^(?:\\d+\\.\\s*)?${categoryPattern}$`, 'i');
+      allRtqs = allRtqs.filter(r => r.category && regex.test(r.category));
+    }
+
+    const total = allRtqs.length;
+    const paginated = allRtqs.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+
+    res.json({ data: paginated, pagination: { page: pageNum, limit: limitNum, total } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -42,9 +69,13 @@ export async function getRTQ(req, res) {
   try {
     const rtq = await RTQ.findById(req.params.id)
       .populate('postedBy', 'name role')
+      .populate('acceptedBy', 'name role')
       .populate({
         path: 'answers',
-        populate: { path: 'userId', select: 'name role' }
+        populate: [
+          { path: 'userId', select: 'name role' },
+          { path: 'approvedBy', select: 'name role' }
+        ]
       });
     if (!rtq) return res.status(404).json({ message: 'RTQ not found' });
     res.json(rtq);
@@ -61,28 +92,74 @@ export async function submitQuestion(req, res) {
       return res.status(400).json({ message: 'question and category are required' });
     }
 
-    // FIX #1: Run RAG evaluation BEFORE creating the RTQ record
+    if (req.user.qp < QP_THRESHOLDS.MIN_TO_ASK_QUESTION) {
+      return res.status(403).json({
+        message: `Minimum ${QP_THRESHOLDS.MIN_TO_ASK_QUESTION} QP required to ask a question. Current QP: ${req.user.qp}`,
+        code: 'QP_TOO_LOW'
+      });
+    }
+
     const result = await evaluateQuestion(question);
 
-    // If rejected, do NOT persist an RTQ — just apply penalty and return
     if (result.status === 'REJECT') {
       if (result.penalty < 0) {
         await deductQP(req.user._id, Math.abs(result.penalty), `Question rejected: ${result.reason}`, null);
         await notifyUser(req.user._id, req.user.role, 'question_rejected',
           `Question rejected (duplicate). ${result.penalty} QP`, result.penalty, null);
       }
-      return res.status(200).json({ ...result });
+
+      let faqAutoUpvoteDone = false;
+      if (result.shouldAutoUpvoteFAQ && result.autoUpvoteFAQId) {
+        const faqResult = await autoUpvoteFAQ(result.autoUpvoteFAQId, req.user._id);
+        if (faqResult.success) {
+          const faqAuthorId = await getFAQAuthorId(result.autoUpvoteFAQId);
+          if (faqAuthorId && faqAuthorId.toString() !== req.user._id.toString()) {
+            await awardQP(faqAuthorId, QP_RULES.QUESTION_UPVOTE_BONUS,
+              `Auto-upvote from RAG duplicate detection on FAQ: ${result.matchedFAQ.question.slice(0, 50)}`,
+              result.autoUpvoteFAQId);
+            await notifyUser(faqAuthorId, 'student', 'faq_upvote_received',
+              `Your FAQ received an auto-upvote via RAG duplicate detection. +${QP_RULES.QUESTION_UPVOTE_BONUS} QP`,
+              QP_RULES.QUESTION_UPVOTE_BONUS, result.autoUpvoteFAQId);
+          }
+          logger.info(`[RAG] Auto-upvoted FAQ ${result.autoUpvoteFAQId} for user ${req.user._id} — ${faqResult.reason}`);
+          faqAutoUpvoteDone = true;
+        } else {
+          logger.info(`[RAG] FAQ ${result.autoUpvoteFAQId} auto-upvote skipped: ${faqResult.reason}`);
+        }
+      }
+
+      // RTQ auto-upvote (F3+R1 case)
+      let rtqAutoUpvoteDone = false;
+      if (result.shouldAutoUpvoteRTQ && result.autoUpvoteRTQId) {
+        const rtqResult = await autoUpvoteRTQ(result.autoUpvoteRTQId, req.user._id);
+        if (rtqResult.success) {
+          const rtqAuthorId = await getRTQAuthorId(result.autoUpvoteRTQId);
+          if (rtqAuthorId && rtqAuthorId.toString() !== req.user._id.toString()) {
+            await awardQP(rtqAuthorId, QP_RULES.QUESTION_UPVOTE_BONUS,
+              `Auto-upvote from RAG duplicate detection on RTQ: ${result.matchedRTQ.question.slice(0, 50)}`,
+              result.autoUpvoteRTQId);
+            await notifyUser(rtqAuthorId, 'student', 'rtq_upvote_received',
+              `Your RTQ received an auto-upvote via RAG duplicate detection. +${QP_RULES.QUESTION_UPVOTE_BONUS} QP`,
+              QP_RULES.QUESTION_UPVOTE_BONUS, result.autoUpvoteRTQId);
+          }
+          logger.info(`[RAG] Auto-upvoted RTQ ${result.autoUpvoteRTQId} for user ${req.user._id} — ${rtqResult.reason}`);
+          rtqAutoUpvoteDone = true;
+        } else {
+          logger.info(`[RAG] RTQ ${result.autoUpvoteRTQId} auto-upvote skipped: ${rtqResult.reason}`);
+        }
+      }
+
+      return res.status(200).json({ ...result, faqAutoUpvoteDone, rtqAutoUpvoteDone });
     }
 
-    // ACCEPT — now create the RTQ
-    const vectorEmbedding = embedder.embedSingle(`${question} ${category} ${(tags || []).join(' ')}`);
+    const vectorEmbedding = await generateEmbedding(`${question} ${category} ${(tags || []).join(' ')}`);
     const rtq = await RTQ.create({
       question,
       category,
       tags: tags || [],
       postedBy: req.user._id,
       vectorEmbedding,
-      status: 'open',
+      status: 'unresolved',
       isAccepted: false
     });
 
@@ -118,6 +195,8 @@ export async function addAnswer(req, res) {
       return res.status(400).json({ message: 'You have already answered this question' });
     }
 
+    const wasAlreadyResolved = rtq.status === 'resolved';
+
     const newAnswer = await Answer.create({
       questionId: rtq._id,
       userId: req.user._id,
@@ -125,12 +204,17 @@ export async function addAnswer(req, res) {
     });
 
     rtq.answers.push(newAnswer._id);
+    if (!wasAlreadyResolved && (req.user.role === 'senior' || req.user.role === 'admin')) {
+      rtq.status = 'resolved';
+    }
     await rtq.save();
 
-    const qpAmount = req.user.role === 'senior' ? QP_RULES.SENIOR_ANSWER : QP_RULES.ANSWER_QUESTION;
-    await awardQP(req.user._id, qpAmount, 'Answered a question', newAnswer._id);
-    await notifyUser(req.user._id, req.user.role, 'answer_added',
-      `You answered a question. +${qpAmount} QP`, qpAmount, newAnswer._id);
+    if (!wasAlreadyResolved) {
+      const qpAmount = req.user.role === 'senior' || req.user.role === 'admin' ? QP_RULES.SENIOR_ANSWER : QP_RULES.ANSWER_QUESTION;
+      await awardQP(req.user._id, qpAmount, 'Answered a question', newAnswer._id);
+      await notifyUser(req.user._id, req.user.role, 'answer_added',
+        `You answered a question. +${qpAmount} QP`, qpAmount, newAnswer._id);
+    }
 
     if (rtq.postedBy.toString() !== req.user._id.toString()) {
       await notifyUser(rtq.postedBy, 'student', 'new_answer',
@@ -176,6 +260,32 @@ export async function approveAnswer(req, res) {
     const rtq = await RTQ.findById(answer.questionId);
     if (!rtq) return res.status(404).json({ message: 'RTQ not found' });
 
+    // check max 2 approvals per question per moderator
+    const userApprovalsCount = await Answer.countDocuments({
+      questionId: answer.questionId,
+      approvals: req.user._id
+    });
+    if (userApprovalsCount >= 2 && !answer.approvals.includes(req.user._id)) {
+      return res.status(400).json({ message: 'You have reached the maximum of 2 approvals per question' });
+    }
+
+    if (answer.approvals.some(id => id.toString() === req.user._id.toString())) {
+      return res.status(400).json({ message: 'You have already approved this answer' });
+    }
+
+    // Change of decision: If previously rejected by this moderator, remove their rejection first!
+    if (answer.rejections.some(id => id.toString() === req.user._id.toString())) {
+      answer.rejections = answer.rejections.filter(id => id.toString() !== req.user._id.toString());
+      // Revert the rejection reward for moderator (+3 QP or +5 QP for senior -> deduct accordingly)
+      const prevRejectionReward = req.user.role === 'senior' || req.user.role === 'admin' ? 5 : 3;
+      await deductQP(req.user._id, prevRejectionReward, 'Reverted answer rejection: changed decision to Approve', answer._id);
+      // Revert the rejection penalty for answerer (-3 QP -> award +3 QP)
+      await awardQP(answer.userId, 3, 'Reverted answer rejection: changed decision to Approve', answer._id);
+    }
+
+    // Add to approvals
+    answer.approvals.push(req.user._id);
+
     answer.isApproved = true;
     answer.approvedBy = req.user._id;
     await answer.save();
@@ -185,12 +295,14 @@ export async function approveAnswer(req, res) {
       await rtq.save();
     }
 
-    const qpAmount = req.user.role === 'senior' ? QP_RULES.SENIOR_APPROVE_ANSWER : QP_RULES.MODERATOR_APPROVE_ANSWER;
-    await awardQP(req.user._id, qpAmount, `${req.user.role} approved an answer`, answer._id);
-    await awardQP(answer.userId, QP_RULES.ANSWER_APPROVED, 'Answer approved', answer._id);
+    if (rtq.status !== 'resolved') {
+      const qpAmount = req.user.role === 'senior' || req.user.role === 'admin' ? QP_RULES.SENIOR_APPROVE_ANSWER : 3;
+      await awardQP(req.user._id, qpAmount, `${req.user.role} approved an answer`, answer._id);
+      await awardQP(answer.userId, 5, 'Answer approved by moderator', answer._id);
 
-    await notifyUser(answer.userId, 'student', 'answer_approved',
-      `Your answer was approved. +${QP_RULES.ANSWER_APPROVED} QP`, QP_RULES.ANSWER_APPROVED, answer._id);
+      await notifyUser(answer.userId, 'student', 'answer_approved',
+        `Your answer was approved. +5 QP`, 5, answer._id);
+    }
 
     res.json({ message: 'Answer approved', answer });
   } catch (err) {
@@ -204,17 +316,35 @@ export async function markAccepted(req, res) {
     const rtq = await RTQ.findById(req.params.id);
     if (!rtq) return res.status(404).json({ message: 'RTQ not found' });
 
+    if (rtq.isAccepted) {
+      return res.status(400).json({ message: 'Question is already accepted' });
+    }
+
+    const wasAlreadyResolved = rtq.status === 'resolved';
+
+    // Change of decision: If previously rejected by this moderator, remove their rejection first!
+    if (rtq.rejectedBy.some(id => id.toString() === req.user._id.toString())) {
+      rtq.rejectedBy = rtq.rejectedBy.filter(id => id.toString() !== req.user._id.toString());
+      // Revert the moderator's rejection reward (+3 QP -> deduct 3 QP)
+      await deductQP(req.user._id, 3, 'Reverted question rejection: changed decision to Accept', rtq._id);
+      if (rtq.rejectedBy.length === 0) {
+        rtq.status = 'unresolved';
+      }
+    }
+
     rtq.isAccepted = true;
-    rtq.status = 'resolved';
     rtq.acceptedBy = req.user._id;
     await rtq.save();
 
-    // FIX #12: Only award QP to the moderator/senior — questioner already got +5 at submission
-    const qpAmount = req.user.role === 'senior' ? QP_RULES.SENIOR_APPROVE_ANSWER : QP_RULES.MODERATOR_MARK_ACCEPTED;
-    await awardQP(req.user._id, qpAmount, `${req.user.role} accepted question`, rtq._id);
+    if (!wasAlreadyResolved) {
+      // Award +5 QP to questioner, +3 QP to moderator (or SENIOR_APPROVE_ANSWER if senior/admin)
+      const qpAmount = req.user.role === 'senior' || req.user.role === 'admin' ? QP_RULES.SENIOR_APPROVE_ANSWER : 3;
+      await awardQP(rtq.postedBy, 5, 'Question accepted by moderator', rtq._id);
+      await awardQP(req.user._id, qpAmount, `${req.user.role} accepted question`, rtq._id);
 
-    await notifyUser(rtq.postedBy, 'student', 'question_accepted',
-      `Your question was accepted by a ${req.user.role}.`, 0, rtq._id);
+      await notifyUser(rtq.postedBy, 'student', 'question_accepted',
+        `Your question was accepted by a moderator. +5 QP`, 5, rtq._id);
+    }
 
     res.json({ message: 'Question accepted', rtq });
   } catch (err) {
@@ -228,8 +358,12 @@ export async function removeRTQ(req, res) {
     const rtq = await RTQ.findById(req.params.id);
     if (!rtq) return res.status(404).json({ message: 'RTQ not found' });
 
+    // Deduct -5 QP from questioner
     await deductQP(rtq.postedBy, Math.abs(QP_RULES.PENALTY_QUESTION_REMOVED),
       'Question removed by senior', rtq._id);
+    // Award +5 QP to senior/admin
+    await awardQP(req.user._id, 5, 'Senior removed a question', rtq._id);
+
     await notifyUser(rtq.postedBy, 'student', 'question_removed',
       `Your question was removed. ${QP_RULES.PENALTY_QUESTION_REMOVED} QP`, QP_RULES.PENALTY_QUESTION_REMOVED, rtq._id);
 
@@ -263,58 +397,93 @@ export async function reportRTQ(req, res) {
 
 export async function convertToFAQ(req, res) {
   try {
-    // FIX #3: Populate answers with userId so we can identify the senior's own answer
     const rtq = await RTQ.findById(req.params.id).populate({
       path: 'answers',
-      populate: { path: 'userId', select: '_id name role' }
+      populate: [
+        { path: 'userId', select: '_id name role' },
+        { path: 'approvals', select: '_id role' }
+      ]
     });
     if (!rtq) return res.status(404).json({ message: 'RTQ not found' });
 
-    // FIX #3: Sort answers by upvotes in JS (Mongoose populate options.sort is unreliable)
+    // Prevent duplicate FAQ creation
+    if (rtq.faqId) {
+      return res.status(400).json({ message: 'This RTQ has already been converted to FAQ' });
+    }
+
+    const { answerId, answer: editedAnswer, category: editedCategory, tags: editedTags } = req.body || {};
+
+    let selectedAnswerDoc = null;
+    let finalAnswer = editedAnswer;
+    let finalCategory = editedCategory || rtq.category;
+    let finalTags = Array.isArray(editedTags)
+      ? editedTags
+      : (typeof editedTags === 'string'
+          ? editedTags.split(',').map(t => t.trim()).filter(Boolean)
+          : rtq.tags);
+
     const answers = [...(rtq.answers || [])].sort((a, b) => b.upvotes - a.upvotes);
 
-    // Auto-select: Senior's own answer > Senior-approved > Most upvoted
-    let selectedAnswer = null;
-    let selectedAnswerDoc = null;
-
-    for (const ans of answers) {
-      if (ans.userId?._id?.toString() === req.user._id.toString()) {
-        selectedAnswer = ans.answer;
-        selectedAnswerDoc = ans;
-        break;
-      }
-    }
-    if (!selectedAnswer) {
-      for (const ans of answers) {
-        if (ans.approvedBy?.toString() === req.user._id.toString()) {
-          selectedAnswer = ans.answer;
-          selectedAnswerDoc = ans;
-          break;
-        }
-      }
-    }
-    if (!selectedAnswer && answers.length > 0) {
-      selectedAnswer = answers[0].answer;
-      selectedAnswerDoc = answers[0];
+    // If frontend specified a custom chosen answerId
+    if (answerId) {
+      selectedAnswerDoc = answers.find(ans => (ans._id || ans).toString() === answerId.toString());
     }
 
-    if (!selectedAnswer) {
-      return res.status(400).json({ message: 'No answer available to convert' });
+    // Run the 4-tier selection logic as fallback
+    if (!selectedAnswerDoc) {
+      // Priority 1: Senior's own answer (written by the converting Senior/Admin)
+      selectedAnswerDoc = answers.find(ans => 
+        (ans.userId?._id || ans.userId)?.toString() === req.user._id.toString()
+      );
+
+      // Priority 2: Senior-approved answer (approved by any senior or admin)
+      if (!selectedAnswerDoc) {
+        selectedAnswerDoc = answers.find(ans => 
+          ans.approvals?.some(u => u.role === 'senior' || u.role === 'admin')
+        );
+      }
+
+      // Priority 3: Moderator-approved answer (approved by any moderator)
+      if (!selectedAnswerDoc) {
+        selectedAnswerDoc = answers.find(ans => 
+          ans.approvals?.some(u => u.role === 'moderator')
+        );
+      }
+
+      // Priority 4: Otherwise → most upvoted answer
+      if (!selectedAnswerDoc && answers.length > 0) {
+        selectedAnswerDoc = answers[0];
+      }
+    }
+
+    if (!finalAnswer) {
+      if (!selectedAnswerDoc) {
+        return res.status(400).json({ message: 'No answer available to convert' });
+      }
+      finalAnswer = selectedAnswerDoc.answer;
     }
 
     const faq = await FAQ.create({
       question: rtq.question,
-      answer: selectedAnswer,
-      category: rtq.category,
-      tags: rtq.tags,
-      createdBy: req.user._id
+      answer: finalAnswer,
+      category: finalCategory,
+      tags: finalTags,
+      createdBy: req.user._id,
+      rtqId: rtq._id // Bidirectional traceability on FAQ
     });
+
+    // Save bidirectional traceability link on RTQ, resolve RTQ status
+    rtq.faqId = faq._id;
+    rtq.isAccepted = true;
+    rtq.status = 'resolved';
+    await rtq.save();
 
     if (selectedAnswerDoc) {
       selectedAnswerDoc.isSelectedForFAQ = true;
       await selectedAnswerDoc.save();
-      await awardQP(selectedAnswerDoc.userId._id, QP_RULES.ANSWER_SELECTED_FOR_FAQ, 'Answer selected for FAQ', selectedAnswerDoc._id);
-      await notifyUser(selectedAnswerDoc.userId._id, 'student', 'answer_selected_for_faq',
+      const answererId = selectedAnswerDoc.userId?._id || selectedAnswerDoc.userId;
+      await awardQP(answererId, QP_RULES.ANSWER_SELECTED_FOR_FAQ, 'Answer selected for FAQ', selectedAnswerDoc._id);
+      await notifyUser(answererId, 'student', 'answer_selected_for_faq',
         `Your answer was selected for FAQ. +${QP_RULES.ANSWER_SELECTED_FOR_FAQ} QP`, QP_RULES.ANSWER_SELECTED_FOR_FAQ, selectedAnswerDoc._id);
     }
 
@@ -327,10 +496,170 @@ export async function convertToFAQ(req, res) {
       await syncRTQDelete(rtq._id);
       await syncFAQInsert(faq);
     } catch (vecErr) {
-      logger.error(`[RTQ-Controller] RTQ→FAQ conversion Qdrant sync failed: ${vecErr.message}`);
+      logger.error(`[RTQ-Controller] RTQ→FAQ Qdrant sync failed: ${vecErr.message}`);
+      return res.status(500).json({ message: 'Server error during vector sync' });
     }
 
     res.status(201).json({ message: 'Converted to FAQ', faq });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+export async function updateRTQStatus(req, res) {
+  try {
+    const { status } = req.body;
+    if (!['unresolved', 'partially_resolved', 'resolved'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const rtq = await RTQ.findById(req.params.questionId);
+    if (!rtq) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    // Only owner (question creator) can change status
+    if (rtq.postedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the question owner can change the status' });
+    }
+
+    rtq.status = status;
+    rtq.updatedAt = new Date();
+    await rtq.save();
+
+    res.json({ message: 'Status updated successfully', rtq });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+export async function rejectAnswer(req, res) {
+  try {
+    const answer = await Answer.findById(req.params.answerId);
+    if (!answer) return res.status(404).json({ message: 'Answer not found' });
+
+    if (answer.rejections.some(id => id.toString() === req.user._id.toString())) {
+      return res.status(400).json({ message: 'You have already rejected this answer' });
+    }
+
+    const rtq = await RTQ.findById(answer.questionId);
+
+    // Change of decision: If previously approved by this moderator, remove their approval first!
+    if (answer.approvals.some(id => id.toString() === req.user._id.toString())) {
+      answer.approvals = answer.approvals.filter(id => id.toString() !== req.user._id.toString());
+      // Revert the approval reward for moderator/senior (+3 QP or +5 QP for senior -> deduct accordingly)
+      const prevApprovalReward = req.user.role === 'senior' || req.user.role === 'admin' ? 5 : 3;
+      await deductQP(req.user._id, prevApprovalReward, 'Reverted answer approval: changed decision to Reject', answer._id);
+      // Revert the approval reward for answerer (+5 QP -> deduct 5 QP)
+      await deductQP(answer.userId, 5, 'Reverted answer approval: changed decision to Reject', answer._id);
+
+      if (answer.approvals.length === 0) {
+        answer.isApproved = false;
+        answer.approvedBy = null;
+        if (rtq && rtq.approvedAnswer?.toString() === answer._id.toString()) {
+          rtq.approvedAnswer = null;
+          await rtq.save();
+        }
+      }
+    }
+
+    // Add to rejections
+    answer.rejections.push(req.user._id);
+    await answer.save();
+
+    // -3 QP to answerer, dynamic QP to moderator/senior (+3 QP for moderator, +5 QP for senior)
+    const qpAmount = req.user.role === 'senior' || req.user.role === 'admin' ? 5 : 3;
+    await deductQP(answer.userId, 3, 'Answer rejected by moderator', answer._id);
+    await awardQP(req.user._id, qpAmount, `${req.user.role} rejected an answer`, answer._id);
+
+    await notifyUser(answer.userId, 'student', 'answer_rejected',
+      `Your answer was marked as rejected by a moderator. -3 QP`, -3, answer._id);
+
+    res.json({ message: 'Answer rejected', answer });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+export async function rejectQuestion(req, res) {
+  try {
+    const rtq = await RTQ.findById(req.params.id);
+    if (!rtq) return res.status(404).json({ message: 'RTQ not found' });
+
+    if (rtq.rejectedBy.some(id => id.toString() === req.user._id.toString())) {
+      return res.status(400).json({ message: 'You have already rejected this question' });
+    }
+
+    // Change of decision: If previously accepted, remove the accept first!
+    if (rtq.isAccepted) {
+      rtq.isAccepted = false;
+      const prevAcceptor = rtq.acceptedBy;
+      rtq.acceptedBy = null;
+      
+      // Revert acceptor moderator's reward (+3 QP)
+      if (prevAcceptor) {
+        await deductQP(prevAcceptor, 3, 'Reverted question accept: question rejected later', rtq._id);
+      }
+      // Revert questioner's reward (+5 QP)
+      await deductQP(rtq.postedBy, 5, 'Reverted question accept: question rejected later', rtq._id);
+    }
+
+    rtq.rejectedBy.push(req.user._id);
+
+    // If another moderator rejects the same question (so count >= 2)
+    if (rtq.rejectedBy.length >= 2) {
+      await deductQP(rtq.postedBy, 5, 'Question permanently removed: rejected by multiple moderators', rtq._id);
+      await awardQP(req.user._id, 3, 'Moderator rejected a question', rtq._id);
+      
+      await notifyUser(rtq.postedBy, 'student', 'question_removed',
+        `Your question was permanently removed after being rejected by multiple moderators. -5 QP`, -5, rtq._id);
+
+      await RTQ.findByIdAndDelete(rtq._id);
+      await syncRTQDelete(rtq._id);
+
+      return res.json({ message: 'Question rejected by multiple moderators and permanently removed', deleted: true });
+    } else {
+      // First rejection: set status to 'rejected'
+      rtq.status = 'rejected';
+      await rtq.save();
+
+      await awardQP(req.user._id, 3, 'Moderator rejected a question', rtq._id);
+      
+      res.json({ message: 'Question marked as rejected', rtq, deleted: false });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+export async function markRTQForReview(req, res) {
+  try {
+    const rtq = await RTQ.findById(req.params.id);
+    if (!rtq) return res.status(404).json({ message: 'RTQ not found' });
+
+    rtq.markedForReview = !rtq.markedForReview;
+    await rtq.save();
+
+    res.json({ message: `Question review status updated to ${rtq.markedForReview}`, rtq });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
+export async function markAnswerForReview(req, res) {
+  try {
+    const answer = await Answer.findById(req.params.answerId);
+    if (!answer) return res.status(404).json({ message: 'Answer not found' });
+
+    answer.markedForReview = !answer.markedForReview;
+    await answer.save();
+
+    res.json({ message: `Answer review status updated to ${answer.markedForReview}`, answer });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });

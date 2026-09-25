@@ -12,8 +12,16 @@ export const QUESTION_STATUS = {
 };
 
 export const FAQ_CATEGORIES = [
-  'General', 'Technical', 'Debugging', 'Authentication',
-  'Database', 'API', 'Frontend', 'DevOps', 'Career', 'Other'
+  'About the internship',
+  'Timing and dates',
+  'NOC (No Objection Certificate)',
+  'Selection, offer letter, and certificate',
+  'Work, mentorship, and projects',
+  'Code of conduct - communication channels',
+  'Interviews Related',
+  'Certificate',
+  'Rosetta - your internship journal',
+  'General'
 ];
 
 export const DEFAULT_TAGS = ['question', 'help', 'issue', 'tutorial', 'discussion'];
